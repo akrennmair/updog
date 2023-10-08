@@ -7,7 +7,7 @@ import (
 )
 
 type Index struct {
-	mtx sync.Mutex
+	mtx sync.RWMutex
 
 	schema *schema
 
