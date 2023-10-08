@@ -2,6 +2,7 @@ package updog
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/RoaringBitmap/roaring"
 )
@@ -18,6 +19,10 @@ func (q *Query) Execute(idx *Index) (*Result, error) {
 	var qp queryPlan
 
 	if err := q.Expr.gen(&qp, idx.schema); err != nil {
+		return nil, err
+	}
+
+	if err := qp.populateGroupBy(q.GroupBy, idx.schema); err != nil {
 		return nil, err
 	}
 
@@ -58,7 +63,8 @@ func (q *Query) Execute(idx *Index) (*Result, error) {
 	}
 
 	return &Result{
-		Count: stack[0].GetCardinality(),
+		Count:  stack[0].GetCardinality(),
+		Groups: qp.groupBy(stack[0], idx),
 	}, nil
 }
 
@@ -71,6 +77,18 @@ func pop(stack []*roaring.Bitmap) (elem *roaring.Bitmap, newStack []*roaring.Bit
 
 type Result struct {
 	Count uint64
+
+	Groups []ResultGroup
+}
+
+type ResultGroup struct {
+	Fields []ResultField
+	Count  uint64
+}
+
+type ResultField struct {
+	Column string
+	Value  string
 }
 
 type Expression interface {
@@ -82,10 +100,89 @@ type queryPlan struct {
 	groupByFields []groupBy
 }
 
+func (qp *queryPlan) populateGroupBy(columns []string, sch *schema) error {
+	for _, colName := range columns {
+		col, ok := sch.Columns[colName]
+		if !ok {
+			return fmt.Errorf("column %q not found", colName)
+		}
+
+		gb := groupBy{Column: colName}
+
+		for v, valueIdx := range col.Values {
+			gb.Values = append(gb.Values, groupByValue{
+				Value: v,
+				Idx:   valueIdx,
+			})
+		}
+
+		sort.Slice(gb.Values, func(i, j int) bool {
+			return gb.Values[i].Value < gb.Values[j].Value
+		})
+
+		qp.groupByFields = append(qp.groupByFields, gb)
+	}
+
+	return nil
+}
+
+type resultGroup struct {
+	fields []ResultField
+	result *roaring.Bitmap
+}
+
+func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *Index) (finalResult []ResultGroup) {
+	if len(qp.groupByFields) == 0 {
+		return nil
+	}
+
+	resultGroups := []resultGroup{
+		{result: result},
+	}
+
+	for _, gbf := range qp.groupByFields {
+		var newResultGroups []resultGroup
+
+		for _, rg := range resultGroups {
+			for _, v := range gbf.Values {
+				vbm, ok := idx.values[v.Idx]
+				if !ok {
+					continue
+				}
+
+				result := roaring.And(rg.result, vbm)
+				if result.GetCardinality() == 0 {
+					continue
+				}
+
+				newResultGroups = append(newResultGroups, resultGroup{
+					fields: append(rg.fields, ResultField{Column: gbf.Column, Value: v.Value}),
+					result: result,
+				})
+			}
+		}
+
+		resultGroups = newResultGroups
+	}
+
+	for _, rg := range resultGroups {
+		finalResult = append(finalResult, ResultGroup{
+			Fields: rg.fields,
+			Count:  rg.result.GetCardinality(),
+		})
+	}
+
+	return finalResult
+}
+
 type groupBy struct {
 	Column string
-	Value  string
-	Idx    uint64
+	Values []groupByValue
+}
+
+type groupByValue struct {
+	Value string
+	Idx   uint64
 }
 
 type cmd struct {
