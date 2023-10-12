@@ -1,6 +1,9 @@
 package updog
 
 import (
+	"fmt"
+	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -42,13 +45,15 @@ func TestQuery(t *testing.T) {
 			name: "a=1 or a=2 should return 2",
 			query: &Query{
 				Expr: &ExprOr{
-					Left: &ExprEqual{
-						Column: "a",
-						Value:  "1",
-					},
-					Right: &ExprEqual{
-						Column: "a",
-						Value:  "2",
+					Exprs: []Expression{
+						&ExprEqual{
+							Column: "a",
+							Value:  "1",
+						},
+						&ExprEqual{
+							Column: "a",
+							Value:  "2",
+						},
 					},
 				},
 			},
@@ -58,13 +63,15 @@ func TestQuery(t *testing.T) {
 			name: "b=2 and c=3 should return 2",
 			query: &Query{
 				Expr: &ExprAnd{
-					Left: &ExprEqual{
-						Column: "b",
-						Value:  "2",
-					},
-					Right: &ExprEqual{
-						Column: "c",
-						Value:  "3",
+					Exprs: []Expression{
+						&ExprEqual{
+							Column: "b",
+							Value:  "2",
+						},
+						&ExprEqual{
+							Column: "c",
+							Value:  "3",
+						},
 					},
 				},
 			},
@@ -74,13 +81,15 @@ func TestQuery(t *testing.T) {
 			name: "a=1 and a=2 should return 0",
 			query: &Query{
 				Expr: &ExprAnd{
-					Left: &ExprEqual{
-						Column: "a",
-						Value:  "1",
-					},
-					Right: &ExprEqual{
-						Column: "a",
-						Value:  "2",
+					Exprs: []Expression{
+						&ExprEqual{
+							Column: "a",
+							Value:  "1",
+						},
+						&ExprEqual{
+							Column: "a",
+							Value:  "2",
+						},
 					},
 				},
 			},
@@ -90,14 +99,16 @@ func TestQuery(t *testing.T) {
 			name: "not (a=1 or a=2) should return 1",
 			query: &Query{
 				Expr: &ExprNot{
-					Expression: &ExprOr{
-						Left: &ExprEqual{
-							Column: "a",
-							Value:  "1",
-						},
-						Right: &ExprEqual{
-							Column: "a",
-							Value:  "2",
+					Expr: &ExprOr{
+						Exprs: []Expression{
+							&ExprEqual{
+								Column: "a",
+								Value:  "1",
+							},
+							&ExprEqual{
+								Column: "a",
+								Value:  "2",
+							},
 						},
 					},
 				},
@@ -271,5 +282,92 @@ func TestQueryGroupBy(t *testing.T) {
 			require.NotNil(t, result)
 			require.Equal(t, tt.expectedResult, result)
 		})
+	}
+}
+
+func BenchmarkQuery(b *testing.B) {
+	idx := NewIndex()
+
+	const x = 7324239828
+
+	getRandomRow := func() map[string]string {
+		row := make(map[string]string)
+		for i := 0; i < 1000; i++ {
+			k := fmt.Sprintf("%4x", i)
+			v := fmt.Sprintf("%8o", (x^i)^(x>>1))
+
+			row[k] = v
+		}
+
+		row["is_cool"] = fmt.Sprint(rand.Int31() % 2)
+
+		return row
+	}
+
+	for i := 0; i < 100_000; i++ {
+		randomRow := getRandomRow()
+		idx.AddRow(randomRow)
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		j := i % 1000
+		k := fmt.Sprintf("%4x", (j))
+		v := fmt.Sprintf("%8o", (x^j)^(x>>1))
+
+		q := &Query{
+			Expr: &ExprEqual{
+				Column: k,
+				Value:  v,
+			},
+			GroupBy: []string{"is_cool"},
+		}
+
+		_, err := q.Execute(idx)
+		require.NoError(b, err)
+	}
+}
+
+func BenchmarkQueryCustomers(b *testing.B) {
+	f, err := os.Open("testdata/out.updog")
+
+	if err != nil {
+		b.Skipf("failed to open test file")
+	}
+
+	idx, err := NewIndexFromReader(f)
+	require.NoError(b, err)
+
+	countries := []string{
+		"Eritrea",
+		"Germany",
+		"American Samoa",
+		"Mozambique",
+		"Panama",
+		"Mauritania",
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+
+		q := &Query{
+			Expr: &ExprOr{
+				Exprs: []Expression{
+					&ExprEqual{
+						Column: "Country",
+						Value:  countries[i%len(countries)],
+					},
+					&ExprEqual{
+						Column: "Country",
+						Value:  countries[(i*(i-1))%len(countries)],
+					},
+				},
+			},
+		}
+
+		_, err := q.Execute(idx)
+		require.NoError(b, err)
 	}
 }

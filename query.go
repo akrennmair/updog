@@ -1,6 +1,7 @@
 package updog
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -42,16 +43,22 @@ func (q *Query) Execute(idx *Index) (*Result, error) {
 			elem = roaring.Flip(elem, 0, uint64(idx.nextRowID))
 			stack = append(stack, elem)
 		case cmdAnd:
-			var a, b *roaring.Bitmap
-			a, stack = pop(stack)
-			b, stack = pop(stack)
-			elem := roaring.And(a, b)
+			var elems []*roaring.Bitmap
+			for i := uint64(0); i < cmd.u64; i++ {
+				var a *roaring.Bitmap
+				a, stack = pop(stack)
+				elems = append(elems, a)
+			}
+			elem := roaring.FastAnd(elems...)
 			stack = append(stack, elem)
 		case cmdOr:
-			var a, b *roaring.Bitmap
-			a, stack = pop(stack)
-			b, stack = pop(stack)
-			elem := roaring.Or(a, b)
+			var elems []*roaring.Bitmap
+			for i := uint64(0); i < cmd.u64; i++ {
+				var a *roaring.Bitmap
+				a, stack = pop(stack)
+				elems = append(elems, a)
+			}
+			elem := roaring.FastOr(elems...)
 			stack = append(stack, elem)
 		default:
 			return nil, fmt.Errorf("invalid op code %d", cmd.op)
@@ -218,11 +225,11 @@ func (e *ExprEqual) gen(qp *queryPlan, sch *schema) error {
 }
 
 type ExprNot struct {
-	Expression Expression
+	Expr Expression
 }
 
 func (e *ExprNot) gen(qp *queryPlan, sch *schema) error {
-	if err := e.Expression.gen(qp, sch); err != nil {
+	if err := e.Expr.gen(qp, sch); err != nil {
 		return err
 	}
 
@@ -232,39 +239,41 @@ func (e *ExprNot) gen(qp *queryPlan, sch *schema) error {
 }
 
 type ExprAnd struct {
-	Left  Expression
-	Right Expression
+	Exprs []Expression
 }
 
 func (e *ExprAnd) gen(qp *queryPlan, sch *schema) error {
-	if err := e.Left.gen(qp, sch); err != nil {
-		return err
+	if len(e.Exprs) == 0 {
+		return errors.New("no expression to AND")
 	}
 
-	if err := e.Right.gen(qp, sch); err != nil {
-		return err
+	for _, expr := range e.Exprs {
+		if err := expr.gen(qp, sch); err != nil {
+			return err
+		}
 	}
 
-	qp.cmds = append(qp.cmds, cmd{op: cmdAnd})
+	qp.cmds = append(qp.cmds, cmd{op: cmdAnd, u64: uint64(len(e.Exprs))})
 
 	return nil
 }
 
 type ExprOr struct {
-	Left  Expression
-	Right Expression
+	Exprs []Expression
 }
 
 func (e *ExprOr) gen(qp *queryPlan, sch *schema) error {
-	if err := e.Left.gen(qp, sch); err != nil {
-		return err
+	if len(e.Exprs) == 0 {
+		return errors.New("no expression to OR")
 	}
 
-	if err := e.Right.gen(qp, sch); err != nil {
-		return err
+	for _, expr := range e.Exprs {
+		if err := expr.gen(qp, sch); err != nil {
+			return err
+		}
 	}
 
-	qp.cmds = append(qp.cmds, cmd{op: cmdOr})
+	qp.cmds = append(qp.cmds, cmd{op: cmdOr, u64: uint64(len(e.Exprs))})
 
 	return nil
 }
