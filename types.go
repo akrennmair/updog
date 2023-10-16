@@ -6,7 +6,7 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
-type Index struct {
+type IndexWriter struct {
 	mtx sync.RWMutex
 
 	schema *schema

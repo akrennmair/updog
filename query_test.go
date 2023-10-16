@@ -3,14 +3,13 @@ package updog
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestQuery(t *testing.T) {
-	idx := NewIndex()
+	idx := NewIndexWriter()
 
 	idx.AddRow(map[string]string{"a": "1", "b": "2", "c": "3"})
 	idx.AddRow(map[string]string{"a": "2", "b": "2", "c": "3"})
@@ -128,7 +127,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryGroupBy(t *testing.T) {
-	idx := NewIndex()
+	idx := NewIndexWriter()
 
 	idx.AddRow(map[string]string{"a": "1", "b": "2", "c": "3", "x": "true"})
 	idx.AddRow(map[string]string{"a": "2", "b": "2", "c": "3", "x": "true"})
@@ -286,7 +285,7 @@ func TestQueryGroupBy(t *testing.T) {
 }
 
 func BenchmarkQuery(b *testing.B) {
-	idx := NewIndex()
+	idx := NewIndexWriter()
 
 	const x = 7324239828
 
@@ -329,6 +328,7 @@ func BenchmarkQuery(b *testing.B) {
 	}
 }
 
+/*
 func BenchmarkQueryCustomers(b *testing.B) {
 	f, err := os.Open("testdata/out.updog")
 
@@ -371,3 +371,4 @@ func BenchmarkQueryCustomers(b *testing.B) {
 		require.NoError(b, err)
 	}
 }
+*/

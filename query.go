@@ -13,7 +13,7 @@ type Query struct {
 	GroupBy []string
 }
 
-func (q *Query) Execute(idx *Index) (*Result, error) {
+func (q *Query) Execute(idx *IndexWriter) (*Result, error) {
 	idx.mtx.RLock()
 	defer idx.mtx.RUnlock()
 
@@ -138,7 +138,7 @@ type resultGroup struct {
 	result *roaring.Bitmap
 }
 
-func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *Index) (finalResult []ResultGroup) {
+func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *IndexWriter) (finalResult []ResultGroup) {
 	if len(qp.groupByFields) == 0 {
 		return nil
 	}

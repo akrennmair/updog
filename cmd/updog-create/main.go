@@ -18,7 +18,7 @@ func main() {
 	)
 
 	flag.StringVar(&inputFile, "input", "", "input file (CSV)")
-	flag.StringVar(&outputFile, "output", "out.updog", "output file")
+	flag.StringVar(&outputFile, "output", "out.updog", "output directory")
 
 	flag.Parse()
 
@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("failed to read input file header: %v", err)
 	}
 
-	idx := updog.NewIndex()
+	idx := updog.NewIndexWriter()
 
 	for {
 		record, err := r.Read()
@@ -56,16 +56,18 @@ func main() {
 		idx.AddRow(values)
 	}
 
-	wf, err := os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	fi, err := os.Stat(outputFile)
 	if err != nil {
-		log.Fatalf("failed to open output file: %v", err)
+		if err := os.MkdirAll(outputFile, 0755); err != nil {
+			log.Fatalf("failed to create %s: %v", outputFile, err)
+		}
+	} else {
+		if !fi.IsDir() {
+			log.Fatalf("error: %s is not a directory", outputFile)
+		}
 	}
 
-	if err := idx.WriteTo(wf); err != nil {
-		log.Fatalf("failed to write index to file: %v", err)
-	}
-
-	if err := wf.Close(); err != nil {
-		log.Fatalf("failed to close output file: %v", err)
+	if err := idx.WriteToDirectory(outputFile); err != nil {
+		log.Fatalf("Failed to write output to %s: %v", outputFile, err)
 	}
 }
