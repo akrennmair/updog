@@ -5,15 +5,24 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
 )
 
 func TestQuery(t *testing.T) {
-	idx := NewIndexWriter()
+	idxWriter := NewIndexWriter()
 
-	idx.AddRow(map[string]string{"a": "1", "b": "2", "c": "3"})
-	idx.AddRow(map[string]string{"a": "2", "b": "2", "c": "3"})
-	idx.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
+	idxWriter.AddRow(map[string]string{"a": "1", "b": "2", "c": "3"})
+	idxWriter.AddRow(map[string]string{"a": "2", "b": "2", "c": "3"})
+	idxWriter.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
+
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	require.NoError(t, err)
+
+	require.NoError(t, idxWriter.WriteToBadgerDatabase(db))
+
+	idx, err := OpenIndexFromBadgerDatabase(db)
+	require.NoError(t, err)
 
 	testData := []struct {
 		name           string
@@ -127,14 +136,22 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryGroupBy(t *testing.T) {
-	idx := NewIndexWriter()
+	idxWriter := NewIndexWriter()
 
-	idx.AddRow(map[string]string{"a": "1", "b": "2", "c": "3", "x": "true"})
-	idx.AddRow(map[string]string{"a": "2", "b": "2", "c": "3", "x": "true"})
-	idx.AddRow(map[string]string{"a": "2", "b": "5", "c": "3", "x": "false"})
-	idx.AddRow(map[string]string{"a": "2", "b": "6", "c": "8", "x": "false"})
-	idx.AddRow(map[string]string{"a": "3", "b": "2", "c": "7", "x": "false"})
-	idx.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
+	idxWriter.AddRow(map[string]string{"a": "1", "b": "2", "c": "3", "x": "true"})
+	idxWriter.AddRow(map[string]string{"a": "2", "b": "2", "c": "3", "x": "true"})
+	idxWriter.AddRow(map[string]string{"a": "2", "b": "5", "c": "3", "x": "false"})
+	idxWriter.AddRow(map[string]string{"a": "2", "b": "6", "c": "8", "x": "false"})
+	idxWriter.AddRow(map[string]string{"a": "3", "b": "2", "c": "7", "x": "false"})
+	idxWriter.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
+
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	require.NoError(t, err)
+
+	require.NoError(t, idxWriter.WriteToBadgerDatabase(db))
+
+	idx, err := OpenIndexFromBadgerDatabase(db)
+	require.NoError(t, err)
 
 	testData := []struct {
 		name           string
@@ -284,10 +301,10 @@ func TestQueryGroupBy(t *testing.T) {
 	}
 }
 
-func BenchmarkQuery(b *testing.B) {
-	idx := NewIndexWriter()
+const x = 7324239828
 
-	const x = 7324239828
+func BenchmarkQuery(b *testing.B) {
+	idxWriter := NewIndexWriter()
 
 	getRandomRow := func() map[string]string {
 		row := make(map[string]string)
@@ -305,11 +322,32 @@ func BenchmarkQuery(b *testing.B) {
 
 	for i := 0; i < 100_000; i++ {
 		randomRow := getRandomRow()
-		idx.AddRow(randomRow)
+		idxWriter.AddRow(randomRow)
 	}
+
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	require.NoError(b, err)
+
+	require.NoError(b, idxWriter.WriteToBadgerDatabase(db))
+
+	idx, err := OpenIndexFromBadgerDatabase(db)
+	require.NoError(b, err)
+
+	preloadedIdx, err := OpenIndexFromBadgerDatabase(db, WithPreloadedData())
+	require.NoError(b, err)
 
 	b.ResetTimer()
 
+	b.Run("default", func(b *testing.B) {
+		runBenchmarkQuery(b, idx)
+	})
+
+	b.Run("preloaded", func(b *testing.B) {
+		runBenchmarkQuery(b, preloadedIdx)
+	})
+}
+
+func runBenchmarkQuery(b *testing.B, idx *Index) {
 	for i := 0; i < b.N; i++ {
 		j := i % 1000
 		k := fmt.Sprintf("%4x", (j))

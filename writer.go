@@ -98,6 +98,10 @@ func (idx *IndexWriter) WriteToDirectory(d string) error {
 		return err
 	}
 
+	return idx.WriteToBadgerDatabase(db)
+}
+
+func (idx *IndexWriter) WriteToBadgerDatabase(db *badger.DB) error {
 	tx := db.NewTransaction(true)
 
 	idx.mtx.Lock()

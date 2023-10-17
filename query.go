@@ -13,7 +13,7 @@ type Query struct {
 	GroupBy []string
 }
 
-func (q *Query) Execute(idx *IndexWriter) (*Result, error) {
+func (q *Query) Execute(idx *Index) (*Result, error) {
 	idx.mtx.RLock()
 	defer idx.mtx.RUnlock()
 
@@ -32,8 +32,8 @@ func (q *Query) Execute(idx *IndexWriter) (*Result, error) {
 	for _, cmd := range qp.cmds {
 		switch cmd.op {
 		case cmdLoad:
-			v, ok := idx.values[cmd.u64]
-			if !ok {
+			v, err := idx.values.GetCol(cmd.u64)
+			if err != nil {
 				v = roaring.New()
 			}
 			stack = append(stack, v)
@@ -138,7 +138,7 @@ type resultGroup struct {
 	result *roaring.Bitmap
 }
 
-func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *IndexWriter) (finalResult []ResultGroup) {
+func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *Index) (finalResult []ResultGroup) {
 	if len(qp.groupByFields) == 0 {
 		return nil
 	}
@@ -152,8 +152,8 @@ func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *IndexWriter) (finalRes
 
 		for _, rg := range resultGroups {
 			for _, v := range gbf.Values {
-				vbm, ok := idx.values[v.Idx]
-				if !ok {
+				vbm, err := idx.values.GetCol(v.Idx)
+				if err != nil {
 					continue
 				}
 
