@@ -127,6 +127,7 @@ func TestQuery(t *testing.T) {
 
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Logf("query = %s", tt.query.Expr.String())
 			result, err := tt.query.Execute(idx)
 			require.NoError(t, err)
 			require.NotNil(t, result)

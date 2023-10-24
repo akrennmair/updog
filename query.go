@@ -1,9 +1,10 @@
 package updog
 
 import (
-	"errors"
 	"fmt"
+	"math/bits"
 	"sort"
+	"strings"
 
 	"github.com/RoaringBitmap/roaring"
 )
@@ -19,67 +20,19 @@ func (q *Query) Execute(idx *Index) (*Result, error) {
 
 	var qp queryPlan
 
-	if err := q.Expr.gen(&qp, idx.schema); err != nil {
-		return nil, err
-	}
-
 	if err := qp.populateGroupBy(q.GroupBy, idx.schema); err != nil {
 		return nil, err
 	}
 
-	var stack []*roaring.Bitmap
-
-	for _, cmd := range qp.cmds {
-		switch cmd.op {
-		case cmdLoad:
-			v, err := idx.values.GetCol(cmd.u64)
-			if err != nil {
-				v = roaring.New()
-			}
-			stack = append(stack, v)
-		case cmdNot:
-			var elem *roaring.Bitmap
-			elem, stack = pop(stack)
-			elem = roaring.Flip(elem, 0, uint64(idx.nextRowID))
-			stack = append(stack, elem)
-		case cmdAnd:
-			var elems []*roaring.Bitmap
-			for i := uint64(0); i < cmd.u64; i++ {
-				var a *roaring.Bitmap
-				a, stack = pop(stack)
-				elems = append(elems, a)
-			}
-			elem := roaring.FastAnd(elems...)
-			stack = append(stack, elem)
-		case cmdOr:
-			var elems []*roaring.Bitmap
-			for i := uint64(0); i < cmd.u64; i++ {
-				var a *roaring.Bitmap
-				a, stack = pop(stack)
-				elems = append(elems, a)
-			}
-			elem := roaring.FastOr(elems...)
-			stack = append(stack, elem)
-		default:
-			return nil, fmt.Errorf("invalid op code %d", cmd.op)
-		}
-	}
-
-	if len(stack) != 1 {
-		return nil, fmt.Errorf("expected single result after execution, got %d elements on stack instead", len(stack))
+	result, err := q.Expr.eval(idx)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Result{
-		Count:  stack[0].GetCardinality(),
-		Groups: qp.groupBy(stack[0], idx),
+		Count:  result.GetCardinality(),
+		Groups: qp.groupBy(result, idx),
 	}, nil
-}
-
-func pop(stack []*roaring.Bitmap) (elem *roaring.Bitmap, newStack []*roaring.Bitmap) {
-	n := len(stack)
-	elem = stack[n-1]
-	newStack = stack[:n-1]
-	return
 }
 
 type Result struct {
@@ -99,11 +52,12 @@ type ResultField struct {
 }
 
 type Expression interface {
-	gen(qp *queryPlan, sch *schema) error
+	eval(idx *Index) (*roaring.Bitmap, error)
+	String() string
+	cacheKey() uint64
 }
 
 type queryPlan struct {
-	cmds          []cmd
 	groupByFields []groupBy
 }
 
@@ -192,88 +146,190 @@ type groupByValue struct {
 	Idx   uint64
 }
 
-type cmd struct {
-	op  cmdOp
-	u64 uint64
-}
-
-type cmdOp int
-
-const (
-	cmdLoad cmdOp = iota
-	cmdNot
-	cmdAnd
-	cmdOr
-)
-
 type ExprEqual struct {
 	Column string
 	Value  string
 }
 
-func (e *ExprEqual) gen(qp *queryPlan, sch *schema) error {
-	_, ok := sch.Columns[e.Column]
+func (e *ExprEqual) eval(idx *Index) (*roaring.Bitmap, error) {
+	_, ok := idx.schema.Columns[e.Column]
 	if !ok {
-		return fmt.Errorf("column %q not found in schema", e.Column)
+		return nil, fmt.Errorf("column %q not found in schema", e.Column)
 	}
 
 	valueIdx := getValueIndex(e.Column, e.Value)
 
-	qp.cmds = append(qp.cmds, cmd{op: cmdLoad, u64: valueIdx})
+	cacheKey := e.cacheKey()
 
-	return nil
+	bm, ok := idx.cache.Get(cacheKey)
+	if ok {
+		return bm, nil
+	}
+
+	bm, err := idx.values.GetCol(valueIdx)
+	if err != nil || bm == nil {
+		bm = roaring.New()
+	}
+
+	idx.cache.Put(cacheKey, bm)
+
+	return bm, nil
+}
+
+func (e *ExprEqual) String() string {
+	return fmt.Sprintf("(EQUAL %s %q)", e.Column, e.Value)
+}
+
+func (e *ExprEqual) cacheKey() uint64 {
+	return getValueIndex(e.Column, e.Value)
 }
 
 type ExprNot struct {
 	Expr Expression
 }
 
-func (e *ExprNot) gen(qp *queryPlan, sch *schema) error {
-	if err := e.Expr.gen(qp, sch); err != nil {
-		return err
+func (e *ExprNot) eval(idx *Index) (*roaring.Bitmap, error) {
+	cacheKey := e.cacheKey()
+
+	bm, ok := idx.cache.Get(cacheKey)
+	if ok {
+		return bm, nil
 	}
 
-	qp.cmds = append(qp.cmds, cmd{op: cmdNot})
+	bm, err := e.Expr.eval(idx)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
+	bm = roaring.Flip(bm, 0, uint64(idx.nextRowID))
+
+	idx.cache.Put(cacheKey, bm)
+
+	return bm, nil
+}
+
+func (e *ExprNot) String() string {
+	return fmt.Sprintf("(NOT %s)", e.Expr.String())
+}
+
+const (
+	maskNot = 0x87A9CD14CAEB50EB
+	maskAnd = 0xF9F1F5ADCB67A077
+	maskOr  = 0xBFB85A99B03E78E7
+)
+
+func (e *ExprNot) cacheKey() uint64 {
+	return bits.RotateLeft64(e.Expr.cacheKey(), 1) ^ maskNot
 }
 
 type ExprAnd struct {
 	Exprs []Expression
 }
 
-func (e *ExprAnd) gen(qp *queryPlan, sch *schema) error {
-	if len(e.Exprs) == 0 {
-		return errors.New("no expression to AND")
+func (e *ExprAnd) eval(idx *Index) (*roaring.Bitmap, error) {
+	var elems []*roaring.Bitmap
+
+	cacheKey := e.cacheKey()
+
+	bm, ok := idx.cache.Get(cacheKey)
+	if ok {
+		return bm, nil
 	}
 
-	for _, expr := range e.Exprs {
-		if err := expr.gen(qp, sch); err != nil {
-			return err
+	for _, e := range e.Exprs {
+		elem, err := e.eval(idx)
+		if err != nil {
+			return nil, err
 		}
+
+		elems = append(elems, elem)
 	}
 
-	qp.cmds = append(qp.cmds, cmd{op: cmdAnd, u64: uint64(len(e.Exprs))})
+	bm = roaring.FastAnd(elems...)
 
-	return nil
+	idx.cache.Put(cacheKey, bm)
+
+	return bm, nil
+}
+
+func (e *ExprAnd) String() string {
+	var buf strings.Builder
+
+	buf.WriteString("(AND ")
+
+	for idx, expr := range e.Exprs {
+		if idx > 0 {
+			buf.WriteString(" ")
+		}
+		buf.WriteString(expr.String())
+	}
+
+	buf.WriteString(")")
+
+	return buf.String()
+}
+
+func (e *ExprAnd) cacheKey() uint64 {
+	key := uint64(maskAnd)
+	for _, e := range e.Exprs {
+		key = key ^ bits.RotateLeft64(e.cacheKey(), 1)
+	}
+
+	return key
 }
 
 type ExprOr struct {
 	Exprs []Expression
 }
 
-func (e *ExprOr) gen(qp *queryPlan, sch *schema) error {
-	if len(e.Exprs) == 0 {
-		return errors.New("no expression to OR")
+func (e *ExprOr) eval(idx *Index) (*roaring.Bitmap, error) {
+	var elems []*roaring.Bitmap
+
+	cacheKey := e.cacheKey()
+
+	bm, ok := idx.cache.Get(cacheKey)
+	if ok {
+		return bm, nil
 	}
 
-	for _, expr := range e.Exprs {
-		if err := expr.gen(qp, sch); err != nil {
-			return err
+	for _, e := range e.Exprs {
+		elem, err := e.eval(idx)
+		if err != nil {
+			return nil, err
 		}
+
+		elems = append(elems, elem)
 	}
 
-	qp.cmds = append(qp.cmds, cmd{op: cmdOr, u64: uint64(len(e.Exprs))})
+	bm = roaring.FastOr(elems...)
 
-	return nil
+	idx.cache.Put(cacheKey, bm)
+
+	return bm, nil
+}
+
+func (e *ExprOr) String() string {
+	var buf strings.Builder
+
+	buf.WriteString("(OR ")
+
+	for idx, expr := range e.Exprs {
+		if idx > 0 {
+			buf.WriteString(" ")
+		}
+		buf.WriteString(expr.String())
+	}
+
+	buf.WriteString(")")
+
+	return buf.String()
+}
+
+func (e *ExprOr) cacheKey() uint64 {
+	key := uint64(maskOr)
+	for _, e := range e.Exprs {
+		key = key ^ bits.RotateLeft64(e.cacheKey(), 1)
+	}
+
+	return key
 }

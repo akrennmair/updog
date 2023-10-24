@@ -63,6 +63,8 @@ func OpenIndexFromBadgerDatabase(db *badger.DB, opts ...IndexOption) (*Index, er
 		return nil, err
 	}
 
+	idx.cache = &nullCache{}
+
 	for _, opt := range opts {
 		if err := opt(idx); err != nil {
 			return nil, err
@@ -86,7 +88,21 @@ type Index struct {
 
 	values colGetter
 
-	// TODO: add cache
+	cache cache
+}
+
+type cache interface {
+	Get(key uint64) (*roaring.Bitmap, bool)
+	Put(key uint64, bm *roaring.Bitmap)
+}
+
+type nullCache struct{}
+
+func (c *nullCache) Get(key uint64) (*roaring.Bitmap, bool) {
+	return nil, false
+}
+
+func (c *nullCache) Put(key uint64, bm *roaring.Bitmap) {
 }
 
 type colGetter interface {
