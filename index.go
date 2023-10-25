@@ -91,25 +91,18 @@ type Index struct {
 	cache cache
 }
 
-type cache interface {
-	Get(key uint64) (*roaring.Bitmap, bool)
-	Put(key uint64, bm *roaring.Bitmap)
-}
-
-type nullCache struct{}
-
-func (c *nullCache) Get(key uint64) (*roaring.Bitmap, bool) {
-	return nil, false
-}
-
-func (c *nullCache) Put(key uint64, bm *roaring.Bitmap) {
-}
-
 type colGetter interface {
 	GetCol(key uint64) (*roaring.Bitmap, error)
 }
 
 type IndexOption func(idx *Index) error
+
+func WithLRUCache(maxSizeBytes uint64) IndexOption {
+	return func(idx *Index) error {
+		idx.cache = newLRUCache(maxSizeBytes)
+		return nil
+	}
+}
 
 func (idx *Index) Close() error {
 	if idx.db == nil {
