@@ -21,9 +21,6 @@ func TestQuery(t *testing.T) {
 
 	require.NoError(t, idxWriter.WriteToBadgerDatabase(db))
 
-	idx, err := OpenIndexFromBadgerDatabase(db)
-	require.NoError(t, err)
-
 	testData := []struct {
 		name           string
 		query          *Query
@@ -125,15 +122,41 @@ func TestQuery(t *testing.T) {
 		},
 	}
 
-	for _, tt := range testData {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Logf("query = %s", tt.query.Expr.String())
-			result, err := tt.query.Execute(idx)
-			require.NoError(t, err)
-			require.NotNil(t, result)
-			require.Equal(t, tt.expectedResult, result.Count)
-		})
+	runTests := func(t *testing.T, idx *Index) {
+		for _, tt := range testData {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Logf("query = %s", tt.query.Expr.String())
+				result, err := tt.query.Execute(idx)
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				require.Equal(t, tt.expectedResult, result.Count)
+			})
+		}
 	}
+
+	t.Run("normal", func(t *testing.T) {
+		idx, err := OpenIndexFromBadgerDatabase(db)
+		require.NoError(t, err)
+		runTests(t, idx)
+	})
+
+	t.Run("preloaded", func(t *testing.T) {
+		idx, err := OpenIndexFromBadgerDatabase(db, WithPreloadedData())
+		require.NoError(t, err)
+		runTests(t, idx)
+	})
+
+	t.Run("lrucache", func(t *testing.T) {
+		idx, err := OpenIndexFromBadgerDatabase(db, WithLRUCache(100*1024*1024))
+		require.NoError(t, err)
+		runTests(t, idx)
+	})
+
+	t.Run("lrucache_smallcache", func(t *testing.T) {
+		idx, err := OpenIndexFromBadgerDatabase(db, WithLRUCache(100))
+		require.NoError(t, err)
+		runTests(t, idx)
+	})
 }
 
 func TestQueryGroupBy(t *testing.T) {
