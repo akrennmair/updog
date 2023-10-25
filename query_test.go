@@ -16,7 +16,7 @@ func TestQuery(t *testing.T) {
 	idxWriter.AddRow(map[string]string{"a": "2", "b": "2", "c": "3"})
 	idxWriter.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
 
-	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
 	require.NoError(t, err)
 
 	require.NoError(t, idxWriter.WriteToBadgerDatabase(db))
@@ -146,7 +146,7 @@ func TestQueryGroupBy(t *testing.T) {
 	idxWriter.AddRow(map[string]string{"a": "3", "b": "2", "c": "7", "x": "false"})
 	idxWriter.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
 
-	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
 	require.NoError(t, err)
 
 	require.NoError(t, idxWriter.WriteToBadgerDatabase(db))
@@ -326,7 +326,7 @@ func BenchmarkQuery(b *testing.B) {
 		idxWriter.AddRow(randomRow)
 	}
 
-	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
 	require.NoError(b, err)
 
 	require.NoError(b, idxWriter.WriteToBadgerDatabase(db))

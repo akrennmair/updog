@@ -11,7 +11,7 @@ import (
 )
 
 func OpenIndex(dir string, opts ...IndexOption) (*Index, error) {
-	db, err := badger.Open(badger.DefaultOptions(dir))
+	db, err := badger.Open(badger.DefaultOptions(dir).WithLogger(nil))
 	if err != nil {
 		return nil, err
 	}
