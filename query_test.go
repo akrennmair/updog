@@ -337,6 +337,12 @@ func BenchmarkQuery(b *testing.B) {
 	preloadedIdx, err := OpenIndexFromBadgerDatabase(db, WithPreloadedData())
 	require.NoError(b, err)
 
+	idxWithLRUCache, err := OpenIndexFromBadgerDatabase(db, WithLRUCache(100*1024*1024)) // 100 MiB cache
+	require.NoError(b, err)
+
+	preloadedIdxWithLRUCache, err := OpenIndexFromBadgerDatabase(db, WithPreloadedData(), WithLRUCache(100*1024*1024))
+	require.NoError(b, err)
+
 	b.ResetTimer()
 
 	b.Run("default", func(b *testing.B) {
@@ -346,6 +352,14 @@ func BenchmarkQuery(b *testing.B) {
 	b.Run("preloaded", func(b *testing.B) {
 		runBenchmarkQuery(b, preloadedIdx)
 	})
+
+	b.Run("lrucache", func(b *testing.B) {
+		runBenchmarkQuery(b, idxWithLRUCache)
+	})
+
+	b.Run("preloaded_lrucache", func(b *testing.B) {
+		runBenchmarkQuery(b, preloadedIdxWithLRUCache)
+	})
 }
 
 func runBenchmarkQuery(b *testing.B, idx *Index) {
@@ -353,11 +367,20 @@ func runBenchmarkQuery(b *testing.B, idx *Index) {
 		j := i % 1000
 		k := fmt.Sprintf("%4x", (j))
 		v := fmt.Sprintf("%8o", (x^j)^(x>>1))
+		w := fmt.Sprintf("%8o", (x^((i+1)%1000))^(x>>1))
 
 		q := &Query{
-			Expr: &ExprEqual{
-				Column: k,
-				Value:  v,
+			Expr: &ExprOr{
+				Exprs: []Expression{
+					&ExprEqual{
+						Column: k,
+						Value:  v,
+					},
+					&ExprEqual{
+						Column: k,
+						Value:  w,
+					},
+				},
 			},
 			GroupBy: []string{"is_cool"},
 		}
