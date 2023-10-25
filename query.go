@@ -12,15 +12,15 @@ import (
 type Query struct {
 	Expr    Expression
 	GroupBy []string
+
+	groupByFields []groupBy
 }
 
 func (q *Query) Execute(idx *Index) (*Result, error) {
 	idx.mtx.RLock()
 	defer idx.mtx.RUnlock()
 
-	var qp queryPlan
-
-	if err := qp.populateGroupBy(q.GroupBy, idx.schema); err != nil {
+	if err := q.populateGroupBy(q.GroupBy, idx.schema); err != nil {
 		return nil, err
 	}
 
@@ -31,7 +31,7 @@ func (q *Query) Execute(idx *Index) (*Result, error) {
 
 	return &Result{
 		Count:  result.GetCardinality(),
-		Groups: qp.groupBy(result, idx),
+		Groups: q.groupBy(result, idx),
 	}, nil
 }
 
@@ -57,11 +57,7 @@ type Expression interface {
 	cacheKey() uint64
 }
 
-type queryPlan struct {
-	groupByFields []groupBy
-}
-
-func (qp *queryPlan) populateGroupBy(columns []string, sch *schema) error {
+func (q *Query) populateGroupBy(columns []string, sch *schema) error {
 	for _, colName := range columns {
 		col, ok := sch.Columns[colName]
 		if !ok {
@@ -81,7 +77,7 @@ func (qp *queryPlan) populateGroupBy(columns []string, sch *schema) error {
 			return gb.Values[i].Value < gb.Values[j].Value
 		})
 
-		qp.groupByFields = append(qp.groupByFields, gb)
+		q.groupByFields = append(q.groupByFields, gb)
 	}
 
 	return nil
@@ -92,8 +88,8 @@ type resultGroup struct {
 	result *roaring.Bitmap
 }
 
-func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *Index) (finalResult []ResultGroup) {
-	if len(qp.groupByFields) == 0 {
+func (q *Query) groupBy(result *roaring.Bitmap, idx *Index) (finalResult []ResultGroup) {
+	if len(q.groupByFields) == 0 {
 		return nil
 	}
 
@@ -101,7 +97,7 @@ func (qp *queryPlan) groupBy(result *roaring.Bitmap, idx *Index) (finalResult []
 		{result: result},
 	}
 
-	for _, gbf := range qp.groupByFields {
+	for _, gbf := range q.groupByFields {
 		var newResultGroups []resultGroup
 
 		for _, rg := range resultGroups {
