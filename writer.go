@@ -11,6 +11,8 @@ import (
 	"github.com/dgraph-io/badger/v4"
 )
 
+// NewIndexWriter creates a new IndexWriter object. IndexWriter is used to add row data and to write
+// the corresponding index data to a persistent store.
 func NewIndexWriter() *IndexWriter {
 	return &IndexWriter{
 		schema: &schema{
@@ -20,6 +22,8 @@ func NewIndexWriter() *IndexWriter {
 	}
 }
 
+// AddRow adds a row of data and returns its row ID. The row data must be provided as map,
+// where the keys contain the column names, and the values the corresponding column values.
 func (idx *IndexWriter) AddRow(values map[string]string) uint32 {
 	idx.mtx.Lock()
 	defer idx.mtx.Unlock()
@@ -92,6 +96,8 @@ var (
 	keyPrefixValue = []byte{'V'}
 )
 
+// WriteToDirectory writes the index data to the provided directory. In that directory,
+// a badger database is created.
 func (idx *IndexWriter) WriteToDirectory(d string) error {
 	db, err := badger.Open(badger.DefaultOptions(d))
 	if err != nil {
@@ -101,6 +107,7 @@ func (idx *IndexWriter) WriteToDirectory(d string) error {
 	return idx.WriteToBadgerDatabase(db)
 }
 
+// WriteToBadgerDatabase writes the index data directly to a badger database.
 func (idx *IndexWriter) WriteToBadgerDatabase(db *badger.DB) error {
 	tx := db.NewTransaction(true)
 
