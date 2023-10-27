@@ -2,11 +2,13 @@ package updog
 
 import (
 	"fmt"
+	"io/fs"
 	"math/rand"
+	"os"
 	"testing"
 
-	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
 )
 
 func TestQuery(t *testing.T) {
@@ -16,10 +18,17 @@ func TestQuery(t *testing.T) {
 	idxWriter.AddRow(map[string]string{"a": "2", "b": "2", "c": "3"})
 	idxWriter.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
 
-	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
+	testFile, err := os.CreateTemp(os.TempDir(), "updog_test_")
 	require.NoError(t, err)
 
-	require.NoError(t, idxWriter.WriteToBadgerDatabase(db))
+	db, err := bbolt.Open("", 0644, &bbolt.Options{
+		OpenFile: func(string, int, fs.FileMode) (*os.File, error) {
+			return testFile, nil
+		},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, idxWriter.WriteToBoltDatabase(db))
 
 	testData := []struct {
 		name           string
@@ -135,25 +144,25 @@ func TestQuery(t *testing.T) {
 	}
 
 	t.Run("normal", func(t *testing.T) {
-		idx, err := OpenIndexFromBadgerDatabase(db)
+		idx, err := OpenIndexFromBoltDatabase(db)
 		require.NoError(t, err)
 		runTests(t, idx)
 	})
 
 	t.Run("preloaded", func(t *testing.T) {
-		idx, err := OpenIndexFromBadgerDatabase(db, WithPreloadedData())
+		idx, err := OpenIndexFromBoltDatabase(db, WithPreloadedData())
 		require.NoError(t, err)
 		runTests(t, idx)
 	})
 
 	t.Run("lrucache", func(t *testing.T) {
-		idx, err := OpenIndexFromBadgerDatabase(db, WithLRUCache(100*1024*1024))
+		idx, err := OpenIndexFromBoltDatabase(db, WithLRUCache(100*1024*1024))
 		require.NoError(t, err)
 		runTests(t, idx)
 	})
 
 	t.Run("lrucache_smallcache", func(t *testing.T) {
-		idx, err := OpenIndexFromBadgerDatabase(db, WithLRUCache(100))
+		idx, err := OpenIndexFromBoltDatabase(db, WithLRUCache(100))
 		require.NoError(t, err)
 		runTests(t, idx)
 	})
@@ -169,12 +178,19 @@ func TestQueryGroupBy(t *testing.T) {
 	idxWriter.AddRow(map[string]string{"a": "3", "b": "2", "c": "7", "x": "false"})
 	idxWriter.AddRow(map[string]string{"a": "3", "b": "4", "c": "5"})
 
-	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
+	testFile, err := os.CreateTemp(os.TempDir(), "updog_test_")
 	require.NoError(t, err)
 
-	require.NoError(t, idxWriter.WriteToBadgerDatabase(db))
+	db, err := bbolt.Open("", 0644, &bbolt.Options{
+		OpenFile: func(string, int, fs.FileMode) (*os.File, error) {
+			return testFile, nil
+		},
+	})
+	require.NoError(t, err)
 
-	idx, err := OpenIndexFromBadgerDatabase(db)
+	require.NoError(t, idxWriter.WriteToBoltDatabase(db))
+
+	idx, err := OpenIndexFromBoltDatabase(db)
 	require.NoError(t, err)
 
 	testData := []struct {
@@ -349,21 +365,28 @@ func BenchmarkQuery(b *testing.B) {
 		idxWriter.AddRow(randomRow)
 	}
 
-	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
+	testFile, err := os.CreateTemp(os.TempDir(), "updog_test_")
 	require.NoError(b, err)
 
-	require.NoError(b, idxWriter.WriteToBadgerDatabase(db))
-
-	idx, err := OpenIndexFromBadgerDatabase(db)
+	db, err := bbolt.Open("", 0644, &bbolt.Options{
+		OpenFile: func(string, int, fs.FileMode) (*os.File, error) {
+			return testFile, nil
+		},
+	})
 	require.NoError(b, err)
 
-	preloadedIdx, err := OpenIndexFromBadgerDatabase(db, WithPreloadedData())
+	require.NoError(b, idxWriter.WriteToBoltDatabase(db))
+
+	idx, err := OpenIndexFromBoltDatabase(db)
 	require.NoError(b, err)
 
-	idxWithLRUCache, err := OpenIndexFromBadgerDatabase(db, WithLRUCache(100*1024*1024)) // 100 MiB cache
+	preloadedIdx, err := OpenIndexFromBoltDatabase(db, WithPreloadedData())
 	require.NoError(b, err)
 
-	preloadedIdxWithLRUCache, err := OpenIndexFromBadgerDatabase(db, WithPreloadedData(), WithLRUCache(100*1024*1024))
+	idxWithLRUCache, err := OpenIndexFromBoltDatabase(db, WithLRUCache(100*1024*1024)) // 100 MiB cache
+	require.NoError(b, err)
+
+	preloadedIdxWithLRUCache, err := OpenIndexFromBoltDatabase(db, WithPreloadedData(), WithLRUCache(100*1024*1024))
 	require.NoError(b, err)
 
 	b.ResetTimer()

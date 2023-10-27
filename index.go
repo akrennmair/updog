@@ -7,54 +7,38 @@ import (
 	"sync"
 
 	"github.com/RoaringBitmap/roaring"
-	"github.com/dgraph-io/badger/v4"
+	"go.etcd.io/bbolt"
 )
 
-func OpenIndex(dir string, opts ...IndexOption) (*Index, error) {
-	db, err := badger.Open(badger.DefaultOptions(dir).WithLogger(nil))
+func OpenIndex(file string, opts ...IndexOption) (*Index, error) {
+	db, err := bbolt.Open(file, 0644, &bbolt.Options{})
 	if err != nil {
 		return nil, err
 	}
 
-	return OpenIndexFromBadgerDatabase(db, opts...)
+	return OpenIndexFromBoltDatabase(db, opts...)
 }
 
-func OpenIndexFromBadgerDatabase(db *badger.DB, opts ...IndexOption) (*Index, error) {
+func OpenIndexFromBoltDatabase(db *bbolt.DB, opts ...IndexOption) (*Index, error) {
 	idx := &Index{}
 
 	idx.db = db
 
-	err := db.View(func(tx *badger.Txn) error {
-		schemaItem, err := tx.Get(keySchema)
-		if err != nil {
-			return err
-		}
-
-		schemaData, err := schemaItem.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
+	err := db.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket([]byte("data"))
+		schemaItem := bucket.Get(keySchema)
 
 		var sch schema
 
-		if err := gob.NewDecoder(bytes.NewReader(schemaData)).Decode(&sch); err != nil {
+		if err := gob.NewDecoder(bytes.NewReader(schemaItem)).Decode(&sch); err != nil {
 			return err
 		}
 
 		idx.schema = &sch
 
-		rowsItem, err := tx.Get(keyNextRowID)
-		if err != nil {
-			return err
-		}
+		rowsItem := bucket.Get(keyNextRowID)
 
-		rowsData, err := rowsItem.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
-
-		idx.nextRowID = binary.BigEndian.Uint32(rowsData)
-
+		idx.nextRowID = binary.BigEndian.Uint32(rowsItem)
 		return nil
 	})
 
@@ -84,7 +68,7 @@ type Index struct {
 	schema    *schema
 	nextRowID uint32
 
-	db *badger.DB
+	db *bbolt.DB
 
 	values colGetter
 
@@ -114,35 +98,29 @@ func (idx *Index) Close() error {
 	return err
 }
 
-func newOnDemandColGetter(db *badger.DB) colGetter {
+func newOnDemandColGetter(db *bbolt.DB) colGetter {
 	return &onDemandColGetter{db: db}
 }
 
 type onDemandColGetter struct {
-	db *badger.DB
+	db *bbolt.DB
 }
 
 func (g *onDemandColGetter) GetCol(key uint64) (*roaring.Bitmap, error) {
 	var bm *roaring.Bitmap
 
-	err := g.db.View(func(tx *badger.Txn) error {
+	err := g.db.View(func(tx *bbolt.Tx) error {
 		var keyBuf [8]byte
+
+		bucket := tx.Bucket([]byte("data"))
 
 		binary.BigEndian.PutUint64(keyBuf[:], key)
 
-		item, err := tx.Get(append(keyPrefixValue, keyBuf[:]...))
-		if err != nil {
-			return err
-		}
-
-		data, err := item.ValueCopy(nil)
-		if err != nil {
-			return err
-		}
+		item := bucket.Get(append(keyPrefixValue, keyBuf[:]...))
 
 		bm = roaring.New()
 
-		if _, err := bm.FromBuffer(data); err != nil {
+		if _, err := bm.FromBuffer(item); err != nil {
 			return err
 		}
 
@@ -169,31 +147,19 @@ func WithPreloadedData() IndexOption {
 	}
 }
 
-func newPreloadedColGetter(db *badger.DB) (colGetter, error) {
+func newPreloadedColGetter(db *bbolt.DB) (colGetter, error) {
 	cg := &preloadedColGetter{
 		values: map[uint64]*roaring.Bitmap{},
 	}
 
-	err := db.View(func(tx *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = keyPrefixValue
+	err := db.View(func(tx *bbolt.Tx) error {
+		c := tx.Bucket([]byte("data")).Cursor()
 
-		iter := tx.NewIterator(opts)
-
-		defer iter.Close()
-
-		for iter.Rewind(); iter.Valid(); iter.Next() {
-			keyData := iter.Item().Key()
-
-			key := binary.BigEndian.Uint64(keyData[1:])
-
-			value, err := iter.Item().ValueCopy(nil)
-			if err != nil {
-				return err
-			}
+		for k, v := c.Seek(keyPrefixValue); k != nil && bytes.HasPrefix(k, keyPrefixValue); k, v = c.Next() {
+			key := binary.BigEndian.Uint64(k[1:])
 
 			bm := roaring.New()
-			if _, err := bm.FromBuffer(value); err != nil {
+			if _, err := bm.FromBuffer(v); err != nil {
 				return err
 			}
 
