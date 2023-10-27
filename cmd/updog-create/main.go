@@ -18,7 +18,7 @@ func main() {
 	)
 
 	flag.StringVar(&inputFile, "input", "", "input file (CSV)")
-	flag.StringVar(&outputFile, "output", "out.updog", "output directory")
+	flag.StringVar(&outputFile, "output", "out.updog", "output file")
 
 	flag.Parse()
 
@@ -67,7 +67,7 @@ func main() {
 		}
 	}
 
-	if err := idx.WriteToDirectory(outputFile); err != nil {
+	if err := idx.WriteToFile(outputFile); err != nil {
 		log.Fatalf("Failed to write output to %s: %v", outputFile, err)
 	}
 }

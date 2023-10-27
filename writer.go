@@ -8,7 +8,7 @@ import (
 
 	"github.com/RoaringBitmap/roaring"
 	"github.com/cespare/xxhash/v2"
-	"github.com/dgraph-io/badger/v4"
+	"go.etcd.io/bbolt"
 )
 
 // NewIndexWriter creates a new IndexWriter object. IndexWriter is used to add row data and to write
@@ -96,72 +96,64 @@ var (
 	keyPrefixValue = []byte{'V'}
 )
 
-// WriteToDirectory writes the index data to the provided directory. In that directory,
-// a badger database is created.
-func (idx *IndexWriter) WriteToDirectory(d string) error {
-	db, err := badger.Open(badger.DefaultOptions(d))
+// WriteToFile writes the index data to the provided file.
+func (idx *IndexWriter) WriteToFile(f string) error {
+	db, err := bbolt.Open(f, 0644, &bbolt.Options{})
 	if err != nil {
 		return err
 	}
 
-	return idx.WriteToBadgerDatabase(db)
+	return idx.WriteToBoltDatabase(db)
 }
 
 // WriteToBadgerDatabase writes the index data directly to a badger database.
-func (idx *IndexWriter) WriteToBadgerDatabase(db *badger.DB) error {
-	tx := db.NewTransaction(true)
+func (idx *IndexWriter) WriteToBoltDatabase(db *bbolt.DB) error {
+	err := db.Update(func(tx *bbolt.Tx) error {
+		idx.mtx.Lock()
+		defer idx.mtx.Unlock()
 
-	idx.mtx.Lock()
-	defer idx.mtx.Unlock()
+		idx.optimize()
 
-	idx.optimize()
+		var buf bytes.Buffer
 
-	var buf bytes.Buffer
+		if err := gob.NewEncoder(&buf).Encode(idx.schema); err != nil {
+			return err
+		}
 
-	if err := gob.NewEncoder(&buf).Encode(idx.schema); err != nil {
-		return err
-	}
-
-	if err := tx.Set(keySchema, buf.Bytes()); err != nil {
-		tx.Discard()
-		return err
-	}
-
-	var rowIDbuf [4]byte
-
-	binary.BigEndian.PutUint32(rowIDbuf[:], idx.nextRowID)
-
-	if err := tx.Set(keyNextRowID, rowIDbuf[:]); err != nil {
-		tx.Discard()
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	for k, v := range idx.values {
-		tx := db.NewTransaction(true)
-
-		var keyBuf [8]byte
-
-		binary.BigEndian.PutUint64(keyBuf[:], k)
-
-		valueBuf, err := v.ToBytes()
+		bucket, err := tx.CreateBucketIfNotExists([]byte("data"))
 		if err != nil {
-			tx.Discard()
 			return err
 		}
 
-		if err := tx.Set(append(keyPrefixValue, keyBuf[:]...), valueBuf); err != nil {
-			tx.Discard()
+		if err := bucket.Put(keySchema, buf.Bytes()); err != nil {
 			return err
 		}
 
-		if err := tx.Commit(); err != nil {
+		var rowIDbuf [4]byte
+
+		binary.BigEndian.PutUint32(rowIDbuf[:], idx.nextRowID)
+
+		if err := bucket.Put(keyNextRowID, rowIDbuf[:]); err != nil {
 			return err
 		}
-	}
 
-	return nil
+		for k, v := range idx.values {
+			var keyBuf [8]byte
+
+			binary.BigEndian.PutUint64(keyBuf[:], k)
+
+			valueBuf, err := v.ToBytes()
+			if err != nil {
+				return err
+			}
+
+			if err := bucket.Put(append(keyPrefixValue, keyBuf[:]...), valueBuf); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	return err
 }

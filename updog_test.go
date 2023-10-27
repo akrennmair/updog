@@ -1,10 +1,12 @@
 package updog
 
 import (
+	"io/fs"
+	"os"
 	"testing"
 
-	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/require"
+	"go.etcd.io/bbolt"
 )
 
 func TestCreate(t *testing.T) {
@@ -27,12 +29,19 @@ func TestCreate(t *testing.T) {
 	require.Equal(t, uint64(2), idx.getValueBitmap(getValueIndex("c", "4")).GetCardinality())
 	require.Equal(t, uint64(0), idx.getValueBitmap(getValueIndex("a", "3")).GetCardinality())
 
-	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true).WithLogger(nil))
+	testFile, err := os.CreateTemp(os.TempDir(), "updog_test_")
 	require.NoError(t, err)
 
-	require.NoError(t, idx.WriteToBadgerDatabase(db))
+	db, err := bbolt.Open("", 0644, &bbolt.Options{
+		OpenFile: func(string, int, fs.FileMode) (*os.File, error) {
+			return testFile, nil
+		},
+	})
+	require.NoError(t, err)
 
-	newIdx, err := OpenIndexFromBadgerDatabase(db)
+	require.NoError(t, idx.WriteToBoltDatabase(db))
+
+	newIdx, err := OpenIndexFromBoltDatabase(db)
 	require.NoError(t, err)
 	require.NotNil(t, newIdx)
 
