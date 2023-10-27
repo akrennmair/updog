@@ -360,7 +360,7 @@ func BenchmarkQuery(b *testing.B) {
 		return row
 	}
 
-	for i := 0; i < 100_000; i++ {
+	for i := 0; i < 10_000; i++ {
 		randomRow := getRandomRow()
 		idxWriter.AddRow(randomRow)
 	}
