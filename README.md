@@ -1,6 +1,7 @@
 # README for updog
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/akrennmair/updog.svg)](https://pkg.go.dev/github.com/akrennmair/updog)
+[![Go Report Card](https://goreportcard.com/badge/github.com/akrennmair/updog)](https://goreportcard.com/report/github.com/akrennmair/updog)
 
 ## What's updog?
 
