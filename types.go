@@ -6,6 +6,8 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
+// IndexWriter is a helper type to create a columnar index by adding row
+// data. It needs to be created using the NewIndexWriter constructor function.
 type IndexWriter struct {
 	mtx sync.RWMutex
 

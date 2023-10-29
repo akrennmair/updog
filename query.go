@@ -9,13 +9,22 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
+// Query describes a count query to execute on an index. updog allows you to run
+// the equivalent of SQL queries like `SELECT x, y, z, COUNT(*) WHERE ... GROUP BY x, y, z`.
 type Query struct {
-	Expr    Expression
+	// Expr is the expression you want to limit your query on. You can use the types ExprEqual, ExprNot,
+	// ExprAnd and ExprOr to construct your expression.
+	Expr Expression
+
+	// GroupBy is a list of column names you want to group by. The result will then contain the
+	// results for all available values of all the listed columns for which a non-zero count result
+	// was determined.
 	GroupBy []string
 
 	groupByFields []groupBy
 }
 
+// Execute runs the query on the provided index and returns the query result.
 func (q *Query) Execute(idx *Index) (*Result, error) {
 	idx.mtx.RLock()
 	defer idx.mtx.RUnlock()
@@ -35,17 +44,27 @@ func (q *Query) Execute(idx *Index) (*Result, error) {
 	}, nil
 }
 
+// Result contains the query result.
 type Result struct {
+	// Count is the total count of rows that matched the query expression.
 	Count uint64
 
+	// Groups contains a list of grouped results. If no GroupBy list was provided
+	// in the query, this list will be empty.
 	Groups []ResultGroup
 }
 
+// ResultGroup contains a single grouped result.
 type ResultGroup struct {
+	// Fields contains a list of result fields for that group, each field consisting of the
+	// column name and value.
 	Fields []ResultField
-	Count  uint64
+
+	// Count contains the determined count for the list of result fields.
+	Count uint64
 }
 
+// ResultField contains a single column name and value. It is used in ResultGroup objects.
 type ResultField struct {
 	Column string
 	Value  string

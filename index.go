@@ -10,6 +10,7 @@ import (
 	"go.etcd.io/bbolt"
 )
 
+// OpenIndex opens an index file previously created using the IndexWriter.
 func OpenIndex(file string, opts ...IndexOption) (*Index, error) {
 	db, err := bbolt.Open(file, 0644, &bbolt.Options{})
 	if err != nil {
@@ -19,6 +20,8 @@ func OpenIndex(file string, opts ...IndexOption) (*Index, error) {
 	return OpenIndexFromBoltDatabase(db, opts...)
 }
 
+// OpenIndexFromBoltDatabase opens an index directly from a bbolt database. For this
+// to work correctly, the index should be created using the IndexWriter.
 func OpenIndexFromBoltDatabase(db *bbolt.DB, opts ...IndexOption) (*Index, error) {
 	idx := &Index{}
 
@@ -62,6 +65,8 @@ func OpenIndexFromBoltDatabase(db *bbolt.DB, opts ...IndexOption) (*Index, error
 	return idx, nil
 }
 
+// Index represents an index to run queries on. You have to create objects using the OpenIndex
+// or OpenIndexFromBoltDatabase constructor functions.
 type Index struct {
 	mtx sync.RWMutex
 
@@ -81,6 +86,8 @@ type colGetter interface {
 
 type IndexOption func(idx *Index) error
 
+// WithLRUCache is an option for OpenIndex and OpenIndexFromBoltDatabase to enable
+// the use of a size-bounded LRU cache to cache queries, including partial queries.
 func WithLRUCache(maxSizeBytes uint64) IndexOption {
 	return func(idx *Index) error {
 		idx.cache = newLRUCache(maxSizeBytes)
@@ -88,6 +95,7 @@ func WithLRUCache(maxSizeBytes uint64) IndexOption {
 	}
 }
 
+// Close closes the index, including the associated bbolt database.
 func (idx *Index) Close() error {
 	if idx.db == nil {
 		return nil
@@ -134,6 +142,9 @@ func (g *onDemandColGetter) GetCol(key uint64) (*roaring.Bitmap, error) {
 	return bm, nil
 }
 
+// WithPreloadedData is an option for OpenIndex and OpenIndexFromBoltDatabase to preload
+// all data into memory to allow for faster queries. Only use this if all data from
+// the index file will fit into the available memory.
 func WithPreloadedData() IndexOption {
 	return func(idx *Index) error {
 		cg, err := newPreloadedColGetter(idx.db)

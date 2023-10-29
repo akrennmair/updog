@@ -106,7 +106,7 @@ func (idx *IndexWriter) WriteToFile(f string) error {
 	return idx.WriteToBoltDatabase(db)
 }
 
-// WriteToBadgerDatabase writes the index data directly to a badger database.
+// WriteToBoltDatabase writes the index data directly to a badger database.
 func (idx *IndexWriter) WriteToBoltDatabase(db *bbolt.DB) error {
 	err := db.Update(func(tx *bbolt.Tx) error {
 		idx.mtx.Lock()
