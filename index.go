@@ -77,7 +77,7 @@ type Index struct {
 
 	values colGetter
 
-	cache cache
+	cache Cache
 }
 
 type colGetter interface {
@@ -86,11 +86,11 @@ type colGetter interface {
 
 type IndexOption func(idx *Index) error
 
-// WithLRUCache is an option for OpenIndex and OpenIndexFromBoltDatabase to enable
-// the use of a size-bounded LRU cache to cache queries, including partial queries.
-func WithLRUCache(maxSizeBytes uint64) IndexOption {
+// WithCache is an option for OpenIndex and OpenIndexFromBoltDatabase to set
+// a cache for caching queries, including partial queries.
+func WithCache(cache Cache) IndexOption {
 	return func(idx *Index) error {
-		idx.cache = newLRUCache(maxSizeBytes)
+		idx.cache = cache
 		return nil
 	}
 }

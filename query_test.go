@@ -156,13 +156,13 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("lrucache", func(t *testing.T) {
-		idx, err := OpenIndexFromBoltDatabase(db, WithLRUCache(100*1024*1024))
+		idx, err := OpenIndexFromBoltDatabase(db, WithCache(NewLRUCache(100*1024*1024)))
 		require.NoError(t, err)
 		runTests(t, idx)
 	})
 
 	t.Run("lrucache_smallcache", func(t *testing.T) {
-		idx, err := OpenIndexFromBoltDatabase(db, WithLRUCache(100))
+		idx, err := OpenIndexFromBoltDatabase(db, WithCache(NewLRUCache(100)))
 		require.NoError(t, err)
 		runTests(t, idx)
 	})
@@ -383,10 +383,10 @@ func BenchmarkQuery(b *testing.B) {
 	preloadedIdx, err := OpenIndexFromBoltDatabase(db, WithPreloadedData())
 	require.NoError(b, err)
 
-	idxWithLRUCache, err := OpenIndexFromBoltDatabase(db, WithLRUCache(100*1024*1024)) // 100 MiB cache
+	idxWithLRUCache, err := OpenIndexFromBoltDatabase(db, WithCache(NewLRUCache(100*1024*1024))) // 100 MiB cache
 	require.NoError(b, err)
 
-	preloadedIdxWithLRUCache, err := OpenIndexFromBoltDatabase(db, WithPreloadedData(), WithLRUCache(100*1024*1024))
+	preloadedIdxWithLRUCache, err := OpenIndexFromBoltDatabase(db, WithPreloadedData(), WithCache(NewLRUCache(100*1024*1024)))
 	require.NoError(b, err)
 
 	b.ResetTimer()

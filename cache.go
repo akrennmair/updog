@@ -7,7 +7,7 @@ import (
 	"github.com/RoaringBitmap/roaring"
 )
 
-type cache interface {
+type Cache interface {
 	Get(key uint64) (*roaring.Bitmap, bool)
 	Put(key uint64, bm *roaring.Bitmap)
 }
@@ -21,7 +21,7 @@ func (c *nullCache) Get(key uint64) (*roaring.Bitmap, bool) {
 func (c *nullCache) Put(key uint64, bm *roaring.Bitmap) {
 }
 
-func newLRUCache(maxSize uint64) *lruCache {
+func NewLRUCache(maxSize uint64) *lruCache {
 	return &lruCache{
 		entries: make(map[uint64]*list.Element),
 		lruList: list.New(),
