@@ -135,7 +135,7 @@ func TestQuery(t *testing.T) {
 		for _, tt := range testData {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Logf("query = %s", tt.query.Expr.String())
-				result, err := tt.query.Execute(idx)
+				result, err := idx.Execute(tt.query)
 				require.NoError(t, err)
 				require.NotNil(t, result)
 				require.Equal(t, tt.expectedResult, result.Count)
@@ -333,7 +333,7 @@ func TestQueryGroupBy(t *testing.T) {
 
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := tt.query.Execute(idx)
+			result, err := idx.Execute(tt.query)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Equal(t, tt.expectedResult, result)
@@ -431,7 +431,7 @@ func runBenchmarkQuery(b *testing.B, idx *Index) {
 			GroupBy: []string{"is_cool"},
 		}
 
-		_, err := q.Execute(idx)
+		_, err := idx.Execute(q)
 		require.NoError(b, err)
 	}
 }

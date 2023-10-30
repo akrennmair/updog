@@ -5,6 +5,7 @@ import (
 	"math/bits"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/RoaringBitmap/roaring"
 )
@@ -24,8 +25,14 @@ type Query struct {
 	groupByFields []groupBy
 }
 
-// Execute runs the query on the provided index and returns the query result.
-func (q *Query) Execute(idx *Index) (*Result, error) {
+// Execute runs the provided query on the index and returns the query result.
+func (idx *Index) Execute(q *Query) (*Result, error) {
+	if idx.metrics.ExecuteDuration != nil {
+		defer func(t0 time.Time) {
+			idx.metrics.ExecuteDuration.Observe(time.Since(t0).Seconds())
+		}(time.Now())
+	}
+
 	idx.mtx.RLock()
 	defer idx.mtx.RUnlock()
 

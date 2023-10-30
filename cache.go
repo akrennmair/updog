@@ -65,7 +65,7 @@ type LRUCache struct {
 	metrics *CacheMetrics
 }
 
-// WithCacheMetrics is an option for LRUCache to set a CacheMetrics option.
+// WithCacheMetrics is an option for LRUCache to set a CacheMetrics object.
 func WithCacheMetrics(metrics *CacheMetrics) LRUCacheOption {
 	return func(c *LRUCache) {
 		c.metrics = metrics

@@ -51,6 +51,7 @@ func OpenIndexFromBoltDatabase(db *bbolt.DB, opts ...IndexOption) (*Index, error
 	}
 
 	idx.cache = &nullCache{}
+	idx.metrics = &IndexMetrics{}
 
 	for _, opt := range opts {
 		if err := opt(idx); err != nil {
@@ -77,7 +78,8 @@ type Index struct {
 
 	values colGetter
 
-	cache Cache
+	cache   Cache
+	metrics *IndexMetrics
 }
 
 type colGetter interface {
@@ -156,6 +158,23 @@ func WithPreloadedData() IndexOption {
 
 		return nil
 	}
+}
+
+// WithIndexMetrics is an option for OpenIndex and OpenIndexFromBoltDatabase to set
+// an IndexMetrics object.
+func WithIndexMetrics(metrics *IndexMetrics) IndexOption {
+	return func(c *Index) error {
+		c.metrics = metrics
+		return nil
+	}
+}
+
+type IndexMetrics struct {
+	ExecuteDuration HistogramMetric
+}
+
+type HistogramMetric interface {
+	Observe(float64)
 }
 
 func newPreloadedColGetter(db *bbolt.DB) (colGetter, error) {
