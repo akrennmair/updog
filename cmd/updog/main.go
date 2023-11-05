@@ -38,7 +38,7 @@ func main() {
 	serverCmd.PersistentFlags().StringVarP(&serverConfig.addr, "listen", "l", ":8734", "listen address for gRPC server")
 	serverCmd.PersistentFlags().StringVarP(&serverConfig.debugAddr, "debug-listen", "d", ":8735", "listen address for debug HTTP server exposing prometheus metrics and Go pprof interface")
 
-	var clientConfig struct {
+	var clientCfg struct {
 		addr string
 	}
 
@@ -46,29 +46,34 @@ func main() {
 		Use:   "client",
 		Short: `Remotely query an updog gRPC server.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Server address: %s\n", clientConfig.addr)
+			fmt.Printf("Server address: %s\n", clientCfg.addr)
 			// TODO: implement
 			return nil
 		},
 	}
 
-	clientCmd.PersistentFlags().StringVarP(&clientConfig.addr, "connect", "c", "localhost:8734", "gRPC server address to connect to")
+	clientCmd.PersistentFlags().StringVarP(&clientCfg.addr, "connect", "c", "localhost:8734", "gRPC server address to connect to")
 
-	var createConfig struct {
-		outputFile string
-	}
+	var createCfg createConfig
 
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: `Create an updog index file from a CSV file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Output file: %s\n", createConfig.outputFile)
-			// TODO: implement
-			return nil
+			if len(args) == 0 {
+				return fmt.Errorf("no input file provided")
+			}
+			if len(args) > 1 {
+				return fmt.Errorf("more than one input file provided")
+			}
+
+			createCfg.inputFile = args[0]
+
+			return createCmd(&createCfg)
 		},
 	}
 
-	createCmd.PersistentFlags().StringVarP(&createConfig.outputFile, "output", "o", "out.updog", "output index file")
+	createCmd.PersistentFlags().StringVarP(&createCfg.outputFile, "output", "o", "out.updog", "output index file")
 
 	rootCmd.AddCommand(serverCmd, clientCmd, createCmd)
 
