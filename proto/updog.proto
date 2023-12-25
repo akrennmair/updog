@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+service QueryService {
+	rpc Query(QueryRequest) returns (QueryResponse);
+}
+
+message QueryRequest {
+	repeated Query queries = 1;
+}
+
+message QueryResponse {
+	repeated Result results = 1;
+}
+
+message Query {
+	int32 id = 1;
+	// TODO: expression
+}
+
+message Result {
+	int32 query_id = 1;
+	int32 total_count = 2;
+	repeated PartialResult partial_results = 3;
+}
+
+message PartialResult {
+	repeated Value values = 1;
+	int32 count = 2;
+}
+
+message Value {
+	string field = 1;
+	string value = 2;
+}
