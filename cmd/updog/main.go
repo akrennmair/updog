@@ -20,23 +20,22 @@ func main() {
 		},
 	}
 
-	var serverConfig struct {
-		addr      string
-		debugAddr string
-	}
+	var serverCfg serverConfig
 
 	serverCmd := &cobra.Command{
 		Use:   "server",
 		Short: `Start a new updog gRPC server to make an updog index available remotely.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Address: %s\nDebug address: %s\n", serverConfig.addr, serverConfig.debugAddr)
-			// TODO: implement
-			return nil
+			return serverCmd(&serverCfg)
 		},
 	}
 
-	serverCmd.PersistentFlags().StringVarP(&serverConfig.addr, "listen", "l", ":8734", "listen address for gRPC server")
-	serverCmd.PersistentFlags().StringVarP(&serverConfig.debugAddr, "debug-listen", "d", ":8735", "listen address for debug HTTP server exposing prometheus metrics and Go pprof interface")
+	serverCmd.PersistentFlags().StringVarP(&serverCfg.addr, "listen", "l", ":8734", "listen address for gRPC server")
+	serverCmd.PersistentFlags().StringVarP(&serverCfg.debugAddr, "debug-listen", "d", ":8735", "listen address for debug HTTP server exposing prometheus metrics and Go pprof interface")
+	serverCmd.PersistentFlags().StringVarP(&serverCfg.indexFile, "index-file", "f", "out.updog", "index file to load")
+	serverCmd.PersistentFlags().BoolVarP(&serverCfg.enableCache, "enable-cache", "c", true, "enable query cache")
+	serverCmd.PersistentFlags().Uint64VarP(&serverCfg.maxCacheSize, "max-cache-size", "s", 50*1024*1024, "maximum query cache size")
+	serverCmd.PersistentFlags().BoolVarP(&serverCfg.enablePreloadedData, "enable-preloaded-data", "p", false, "enable preloaded data")
 
 	var clientCfg struct {
 		addr string
