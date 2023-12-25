@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/akrennmair/updog/cmd/updog/queryparser"
 	"github.com/akrennmair/updog/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -73,7 +74,7 @@ func formatGroupFields(fields []*proto.Result_Group_ResultField) string {
 
 func parseQueries(queries []string) (parsedQueries []*proto.Query, err error) {
 	for idx, q := range queries {
-		pq, err := parseQuery(q)
+		pq, err := queryparser.ParseQuery(q)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse query %q: %w", q, err)
 		}
@@ -84,8 +85,4 @@ func parseQueries(queries []string) (parsedQueries []*proto.Query, err error) {
 	}
 
 	return parsedQueries, nil
-}
-
-func parseQuery(q string) (*proto.Query, error) {
-	return nil, fmt.Errorf("not implemented")
 }
