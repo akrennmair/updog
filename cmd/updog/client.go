@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,6 +18,10 @@ type clientConfig struct {
 }
 
 func clientCmd(cfg *clientConfig, queries []string) error {
+	if len(queries) == 0 {
+		return errors.New("no queries provided")
+	}
+
 	parsedQueries, err := parseQueries(queries)
 	if err != nil {
 		return fmt.Errorf("failed to parse queries: %w", err)
@@ -50,7 +55,7 @@ func clientCmd(cfg *clientConfig, queries []string) error {
 		fmt.Printf("Query %d:\n", result.QueryId)
 		fmt.Printf("\tTotal count: %d\n", result.TotalCount)
 		for _, group := range result.Groups {
-			fmt.Printf("Group %s: %d", formatGroupFields(group.Fields), group.Count)
+			fmt.Printf("\tGroup %s: %d\n", formatGroupFields(group.Fields), group.Count)
 		}
 	}
 

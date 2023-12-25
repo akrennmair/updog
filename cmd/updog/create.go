@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/akrennmair/updog"
 )
@@ -28,6 +29,8 @@ func createCmd(cfg *createConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed to read input file header: %w", err)
 	}
+
+	header = normalizeHeader(header)
 
 	idx := updog.NewIndexWriter()
 
@@ -55,4 +58,26 @@ func createCmd(cfg *createConfig) error {
 	}
 
 	return nil
+}
+
+func normalizeHeader(header []string) []string {
+	newHeader := make([]string, 0, len(header))
+
+	for _, hdr := range header {
+		hdr = strings.ToLower(hdr)
+		hdr = strings.Map(func(r rune) rune {
+			if r == ' ' {
+				return '_'
+			}
+			if r >= 'a' && r <= 'z' {
+				return r
+			}
+
+			return '_'
+		}, hdr)
+
+		newHeader = append(newHeader, hdr)
+	}
+
+	return newHeader
 }

@@ -211,5 +211,5 @@ func convertToProtobufResult(result *updog.Result, qid int32) *proto.Result {
 		})
 	}
 
-	return nil
+	return pbr
 }
