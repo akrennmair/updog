@@ -37,17 +37,13 @@ func main() {
 	serverCmd.PersistentFlags().Uint64VarP(&serverCfg.maxCacheSize, "max-cache-size", "s", 50*1024*1024, "maximum query cache size")
 	serverCmd.PersistentFlags().BoolVarP(&serverCfg.enablePreloadedData, "enable-preloaded-data", "p", false, "enable preloaded data")
 
-	var clientCfg struct {
-		addr string
-	}
+	var clientCfg clientConfig
 
 	clientCmd := &cobra.Command{
 		Use:   "client",
 		Short: `Remotely query an updog gRPC server.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Printf("Server address: %s\n", clientCfg.addr)
-			// TODO: implement
-			return nil
+			return clientCmd(&clientCfg, args)
 		},
 	}
 
