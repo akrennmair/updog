@@ -119,7 +119,9 @@ type Query struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id int32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"` // TODO: expression
+	Id      int32             `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Expr    *Query_Expression `protobuf:"bytes,2,opt,name=expr,proto3" json:"expr,omitempty"`
+	GroupBy []string          `protobuf:"bytes,3,rep,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"`
 }
 
 func (x *Query) Reset() {
@@ -161,14 +163,28 @@ func (x *Query) GetId() int32 {
 	return 0
 }
 
+func (x *Query) GetExpr() *Query_Expression {
+	if x != nil {
+		return x.Expr
+	}
+	return nil
+}
+
+func (x *Query) GetGroupBy() []string {
+	if x != nil {
+		return x.GroupBy
+	}
+	return nil
+}
+
 type Result struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	QueryId        int32            `protobuf:"varint,1,opt,name=query_id,json=queryId,proto3" json:"query_id,omitempty"`
-	TotalCount     int32            `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	PartialResults []*PartialResult `protobuf:"bytes,3,rep,name=partial_results,json=partialResults,proto3" json:"partial_results,omitempty"`
+	QueryId    int32           `protobuf:"varint,1,opt,name=query_id,json=queryId,proto3" json:"query_id,omitempty"`
+	TotalCount uint64          `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	Groups     []*Result_Group `protobuf:"bytes,3,rep,name=groups,proto3" json:"groups,omitempty"`
 }
 
 func (x *Result) Reset() {
@@ -210,31 +226,36 @@ func (x *Result) GetQueryId() int32 {
 	return 0
 }
 
-func (x *Result) GetTotalCount() int32 {
+func (x *Result) GetTotalCount() uint64 {
 	if x != nil {
 		return x.TotalCount
 	}
 	return 0
 }
 
-func (x *Result) GetPartialResults() []*PartialResult {
+func (x *Result) GetGroups() []*Result_Group {
 	if x != nil {
-		return x.PartialResults
+		return x.Groups
 	}
 	return nil
 }
 
-type PartialResult struct {
+type Query_Expression struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Values []*Value `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
-	Count  int32    `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+	// Types that are assignable to Value:
+	//
+	//	*Query_Expression_Eq
+	//	*Query_Expression_Not_
+	//	*Query_Expression_And_
+	//	*Query_Expression_Or_
+	Value isQuery_Expression_Value `protobuf_oneof:"value"`
 }
 
-func (x *PartialResult) Reset() {
-	*x = PartialResult{}
+func (x *Query_Expression) Reset() {
+	*x = Query_Expression{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_updog_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -242,13 +263,13 @@ func (x *PartialResult) Reset() {
 	}
 }
 
-func (x *PartialResult) String() string {
+func (x *Query_Expression) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*PartialResult) ProtoMessage() {}
+func (*Query_Expression) ProtoMessage() {}
 
-func (x *PartialResult) ProtoReflect() protoreflect.Message {
+func (x *Query_Expression) ProtoReflect() protoreflect.Message {
 	mi := &file_updog_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -260,36 +281,85 @@ func (x *PartialResult) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use PartialResult.ProtoReflect.Descriptor instead.
-func (*PartialResult) Descriptor() ([]byte, []int) {
-	return file_updog_proto_rawDescGZIP(), []int{4}
+// Deprecated: Use Query_Expression.ProtoReflect.Descriptor instead.
+func (*Query_Expression) Descriptor() ([]byte, []int) {
+	return file_updog_proto_rawDescGZIP(), []int{2, 0}
 }
 
-func (x *PartialResult) GetValues() []*Value {
-	if x != nil {
-		return x.Values
+func (m *Query_Expression) GetValue() isQuery_Expression_Value {
+	if m != nil {
+		return m.Value
 	}
 	return nil
 }
 
-func (x *PartialResult) GetCount() int32 {
-	if x != nil {
-		return x.Count
+func (x *Query_Expression) GetEq() *Query_Expression_Equal {
+	if x, ok := x.GetValue().(*Query_Expression_Eq); ok {
+		return x.Eq
 	}
-	return 0
+	return nil
 }
 
-type Value struct {
+func (x *Query_Expression) GetNot() *Query_Expression_Not {
+	if x, ok := x.GetValue().(*Query_Expression_Not_); ok {
+		return x.Not
+	}
+	return nil
+}
+
+func (x *Query_Expression) GetAnd() *Query_Expression_And {
+	if x, ok := x.GetValue().(*Query_Expression_And_); ok {
+		return x.And
+	}
+	return nil
+}
+
+func (x *Query_Expression) GetOr() *Query_Expression_Or {
+	if x, ok := x.GetValue().(*Query_Expression_Or_); ok {
+		return x.Or
+	}
+	return nil
+}
+
+type isQuery_Expression_Value interface {
+	isQuery_Expression_Value()
+}
+
+type Query_Expression_Eq struct {
+	Eq *Query_Expression_Equal `protobuf:"bytes,1,opt,name=eq,proto3,oneof"`
+}
+
+type Query_Expression_Not_ struct {
+	Not *Query_Expression_Not `protobuf:"bytes,2,opt,name=not,proto3,oneof"`
+}
+
+type Query_Expression_And_ struct {
+	And *Query_Expression_And `protobuf:"bytes,3,opt,name=and,proto3,oneof"`
+}
+
+type Query_Expression_Or_ struct {
+	Or *Query_Expression_Or `protobuf:"bytes,4,opt,name=or,proto3,oneof"`
+}
+
+func (*Query_Expression_Eq) isQuery_Expression_Value() {}
+
+func (*Query_Expression_Not_) isQuery_Expression_Value() {}
+
+func (*Query_Expression_And_) isQuery_Expression_Value() {}
+
+func (*Query_Expression_Or_) isQuery_Expression_Value() {}
+
+type Query_Expression_Equal struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Field string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Column string `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
+	Value  string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (x *Value) Reset() {
-	*x = Value{}
+func (x *Query_Expression_Equal) Reset() {
+	*x = Query_Expression_Equal{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_updog_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -297,13 +367,13 @@ func (x *Value) Reset() {
 	}
 }
 
-func (x *Value) String() string {
+func (x *Query_Expression_Equal) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Value) ProtoMessage() {}
+func (*Query_Expression_Equal) ProtoMessage() {}
 
-func (x *Value) ProtoReflect() protoreflect.Message {
+func (x *Query_Expression_Equal) ProtoReflect() protoreflect.Message {
 	mi := &file_updog_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -315,19 +385,270 @@ func (x *Value) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Value.ProtoReflect.Descriptor instead.
-func (*Value) Descriptor() ([]byte, []int) {
-	return file_updog_proto_rawDescGZIP(), []int{5}
+// Deprecated: Use Query_Expression_Equal.ProtoReflect.Descriptor instead.
+func (*Query_Expression_Equal) Descriptor() ([]byte, []int) {
+	return file_updog_proto_rawDescGZIP(), []int{2, 0, 0}
 }
 
-func (x *Value) GetField() string {
+func (x *Query_Expression_Equal) GetColumn() string {
 	if x != nil {
-		return x.Field
+		return x.Column
 	}
 	return ""
 }
 
-func (x *Value) GetValue() string {
+func (x *Query_Expression_Equal) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+type Query_Expression_Not struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Expr *Query_Expression `protobuf:"bytes,1,opt,name=expr,proto3" json:"expr,omitempty"`
+}
+
+func (x *Query_Expression_Not) Reset() {
+	*x = Query_Expression_Not{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_updog_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Query_Expression_Not) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Query_Expression_Not) ProtoMessage() {}
+
+func (x *Query_Expression_Not) ProtoReflect() protoreflect.Message {
+	mi := &file_updog_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Query_Expression_Not.ProtoReflect.Descriptor instead.
+func (*Query_Expression_Not) Descriptor() ([]byte, []int) {
+	return file_updog_proto_rawDescGZIP(), []int{2, 0, 1}
+}
+
+func (x *Query_Expression_Not) GetExpr() *Query_Expression {
+	if x != nil {
+		return x.Expr
+	}
+	return nil
+}
+
+type Query_Expression_And struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Exprs []*Query_Expression `protobuf:"bytes,1,rep,name=exprs,proto3" json:"exprs,omitempty"`
+}
+
+func (x *Query_Expression_And) Reset() {
+	*x = Query_Expression_And{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_updog_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Query_Expression_And) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Query_Expression_And) ProtoMessage() {}
+
+func (x *Query_Expression_And) ProtoReflect() protoreflect.Message {
+	mi := &file_updog_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Query_Expression_And.ProtoReflect.Descriptor instead.
+func (*Query_Expression_And) Descriptor() ([]byte, []int) {
+	return file_updog_proto_rawDescGZIP(), []int{2, 0, 2}
+}
+
+func (x *Query_Expression_And) GetExprs() []*Query_Expression {
+	if x != nil {
+		return x.Exprs
+	}
+	return nil
+}
+
+type Query_Expression_Or struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Exprs []*Query_Expression `protobuf:"bytes,1,rep,name=exprs,proto3" json:"exprs,omitempty"`
+}
+
+func (x *Query_Expression_Or) Reset() {
+	*x = Query_Expression_Or{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_updog_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Query_Expression_Or) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Query_Expression_Or) ProtoMessage() {}
+
+func (x *Query_Expression_Or) ProtoReflect() protoreflect.Message {
+	mi := &file_updog_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Query_Expression_Or.ProtoReflect.Descriptor instead.
+func (*Query_Expression_Or) Descriptor() ([]byte, []int) {
+	return file_updog_proto_rawDescGZIP(), []int{2, 0, 3}
+}
+
+func (x *Query_Expression_Or) GetExprs() []*Query_Expression {
+	if x != nil {
+		return x.Exprs
+	}
+	return nil
+}
+
+type Result_Group struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Fields []*Result_Group_ResultField `protobuf:"bytes,1,rep,name=fields,proto3" json:"fields,omitempty"`
+	Count  uint64                      `protobuf:"varint,2,opt,name=count,proto3" json:"count,omitempty"`
+}
+
+func (x *Result_Group) Reset() {
+	*x = Result_Group{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_updog_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Result_Group) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Result_Group) ProtoMessage() {}
+
+func (x *Result_Group) ProtoReflect() protoreflect.Message {
+	mi := &file_updog_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Result_Group.ProtoReflect.Descriptor instead.
+func (*Result_Group) Descriptor() ([]byte, []int) {
+	return file_updog_proto_rawDescGZIP(), []int{3, 0}
+}
+
+func (x *Result_Group) GetFields() []*Result_Group_ResultField {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+func (x *Result_Group) GetCount() uint64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type Result_Group_ResultField struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Column string `protobuf:"bytes,1,opt,name=column,proto3" json:"column,omitempty"`
+	Value  string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (x *Result_Group_ResultField) Reset() {
+	*x = Result_Group_ResultField{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_updog_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Result_Group_ResultField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Result_Group_ResultField) ProtoMessage() {}
+
+func (x *Result_Group_ResultField) ProtoReflect() protoreflect.Message {
+	mi := &file_updog_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Result_Group_ResultField.ProtoReflect.Descriptor instead.
+func (*Result_Group_ResultField) Descriptor() ([]byte, []int) {
+	return file_updog_proto_rawDescGZIP(), []int{3, 0, 0}
+}
+
+func (x *Result_Group_ResultField) GetColumn() string {
+	if x != nil {
+		return x.Column
+	}
+	return ""
+}
+
+func (x *Result_Group_ResultField) GetValue() string {
 	if x != nil {
 		return x.Value
 	}
@@ -344,31 +665,60 @@ var file_updog_proto_rawDesc = []byte{
 	0x32, 0x0a, 0x0d, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
 	0x12, 0x21, 0x0a, 0x07, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
 	0x0b, 0x32, 0x07, 0x2e, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x52, 0x07, 0x72, 0x65, 0x73, 0x75,
-	0x6c, 0x74, 0x73, 0x22, 0x17, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x0e, 0x0a, 0x02,
-	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x02, 0x69, 0x64, 0x22, 0x7d, 0x0a, 0x06,
-	0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x12, 0x19, 0x0a, 0x08, 0x71, 0x75, 0x65, 0x72, 0x79, 0x5f,
-	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x71, 0x75, 0x65, 0x72, 0x79, 0x49,
-	0x64, 0x12, 0x1f, 0x0a, 0x0b, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0a, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x43, 0x6f, 0x75,
-	0x6e, 0x74, 0x12, 0x37, 0x0a, 0x0f, 0x70, 0x61, 0x72, 0x74, 0x69, 0x61, 0x6c, 0x5f, 0x72, 0x65,
-	0x73, 0x75, 0x6c, 0x74, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x50, 0x61,
-	0x72, 0x74, 0x69, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x52, 0x0e, 0x70, 0x61, 0x72,
-	0x74, 0x69, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x73, 0x22, 0x45, 0x0a, 0x0d, 0x50,
-	0x61, 0x72, 0x74, 0x69, 0x61, 0x6c, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x12, 0x1e, 0x0a, 0x06,
-	0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x56,
-	0x61, 0x6c, 0x75, 0x65, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x12, 0x14, 0x0a, 0x05,
-	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x63, 0x6f, 0x75,
-	0x6e, 0x74, 0x22, 0x33, 0x0a, 0x05, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x66,
-	0x69, 0x65, 0x6c, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x66, 0x69, 0x65, 0x6c,
-	0x64, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x32, 0x36, 0x0a, 0x0c, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x26, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x12, 0x0d, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x0e, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42,
-	0x31, 0x42, 0x0a, 0x55, 0x70, 0x64, 0x6f, 0x67, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a,
-	0x21, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x61, 0x6b, 0x72, 0x65,
-	0x6e, 0x6e, 0x6d, 0x61, 0x69, 0x72, 0x2f, 0x75, 0x70, 0x64, 0x6f, 0x67, 0x2f, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6c, 0x74, 0x73, 0x22, 0xde, 0x03, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x0e, 0x0a,
+	0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x02, 0x69, 0x64, 0x12, 0x25, 0x0a,
+	0x04, 0x65, 0x78, 0x70, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x2e, 0x45, 0x78, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x04,
+	0x65, 0x78, 0x70, 0x72, 0x12, 0x19, 0x0a, 0x08, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x5f, 0x62, 0x79,
+	0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x07, 0x67, 0x72, 0x6f, 0x75, 0x70, 0x42, 0x79, 0x1a,
+	0x82, 0x03, 0x0a, 0x0a, 0x45, 0x78, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x29,
+	0x0a, 0x02, 0x65, 0x71, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x51, 0x75, 0x65,
+	0x72, 0x79, 0x2e, 0x45, 0x78, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x2e, 0x45, 0x71,
+	0x75, 0x61, 0x6c, 0x48, 0x00, 0x52, 0x02, 0x65, 0x71, 0x12, 0x29, 0x0a, 0x03, 0x6e, 0x6f, 0x74,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x45,
+	0x78, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x2e, 0x4e, 0x6f, 0x74, 0x48, 0x00, 0x52,
+	0x03, 0x6e, 0x6f, 0x74, 0x12, 0x29, 0x0a, 0x03, 0x61, 0x6e, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x15, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x45, 0x78, 0x70, 0x72, 0x65, 0x73,
+	0x73, 0x69, 0x6f, 0x6e, 0x2e, 0x41, 0x6e, 0x64, 0x48, 0x00, 0x52, 0x03, 0x61, 0x6e, 0x64, 0x12,
+	0x26, 0x0a, 0x02, 0x6f, 0x72, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x2e, 0x45, 0x78, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x2e, 0x4f,
+	0x72, 0x48, 0x00, 0x52, 0x02, 0x6f, 0x72, 0x1a, 0x35, 0x0a, 0x05, 0x45, 0x71, 0x75, 0x61, 0x6c,
+	0x12, 0x16, 0x0a, 0x06, 0x63, 0x6f, 0x6c, 0x75, 0x6d, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x06, 0x63, 0x6f, 0x6c, 0x75, 0x6d, 0x6e, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75,
+	0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x1a, 0x2c,
+	0x0a, 0x03, 0x4e, 0x6f, 0x74, 0x12, 0x25, 0x0a, 0x04, 0x65, 0x78, 0x70, 0x72, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x45, 0x78, 0x70, 0x72,
+	0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x04, 0x65, 0x78, 0x70, 0x72, 0x1a, 0x2e, 0x0a, 0x03,
+	0x41, 0x6e, 0x64, 0x12, 0x27, 0x0a, 0x05, 0x65, 0x78, 0x70, 0x72, 0x73, 0x18, 0x01, 0x20, 0x03,
+	0x28, 0x0b, 0x32, 0x11, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x45, 0x78, 0x70, 0x72, 0x65,
+	0x73, 0x73, 0x69, 0x6f, 0x6e, 0x52, 0x05, 0x65, 0x78, 0x70, 0x72, 0x73, 0x1a, 0x2d, 0x0a, 0x02,
+	0x4f, 0x72, 0x12, 0x27, 0x0a, 0x05, 0x65, 0x78, 0x70, 0x72, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x11, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x45, 0x78, 0x70, 0x72, 0x65, 0x73,
+	0x73, 0x69, 0x6f, 0x6e, 0x52, 0x05, 0x65, 0x78, 0x70, 0x72, 0x73, 0x42, 0x07, 0x0a, 0x05, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x22, 0xfb, 0x01, 0x0a, 0x06, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x12,
+	0x19, 0x0a, 0x08, 0x71, 0x75, 0x65, 0x72, 0x79, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x05, 0x52, 0x07, 0x71, 0x75, 0x65, 0x72, 0x79, 0x49, 0x64, 0x12, 0x1f, 0x0a, 0x0b, 0x74, 0x6f,
+	0x74, 0x61, 0x6c, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52,
+	0x0a, 0x74, 0x6f, 0x74, 0x61, 0x6c, 0x43, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x25, 0x0a, 0x06, 0x67,
+	0x72, 0x6f, 0x75, 0x70, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x52, 0x65,
+	0x73, 0x75, 0x6c, 0x74, 0x2e, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x52, 0x06, 0x67, 0x72, 0x6f, 0x75,
+	0x70, 0x73, 0x1a, 0x8d, 0x01, 0x0a, 0x05, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x12, 0x31, 0x0a, 0x06,
+	0x66, 0x69, 0x65, 0x6c, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x52,
+	0x65, 0x73, 0x75, 0x6c, 0x74, 0x2e, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x2e, 0x52, 0x65, 0x73, 0x75,
+	0x6c, 0x74, 0x46, 0x69, 0x65, 0x6c, 0x64, 0x52, 0x06, 0x66, 0x69, 0x65, 0x6c, 0x64, 0x73, 0x12,
+	0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05,
+	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x1a, 0x3b, 0x0a, 0x0b, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x46,
+	0x69, 0x65, 0x6c, 0x64, 0x12, 0x16, 0x0a, 0x06, 0x63, 0x6f, 0x6c, 0x75, 0x6d, 0x6e, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x63, 0x6f, 0x6c, 0x75, 0x6d, 0x6e, 0x12, 0x14, 0x0a, 0x05,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x76, 0x61, 0x6c,
+	0x75, 0x65, 0x32, 0x36, 0x0a, 0x0c, 0x51, 0x75, 0x65, 0x72, 0x79, 0x53, 0x65, 0x72, 0x76, 0x69,
+	0x63, 0x65, 0x12, 0x26, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x0d, 0x2e, 0x51, 0x75,
+	0x65, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x51, 0x75, 0x65,
+	0x72, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42, 0x31, 0x42, 0x0a, 0x55, 0x70,
+	0x64, 0x6f, 0x67, 0x50, 0x72, 0x6f, 0x74, 0x6f, 0x50, 0x01, 0x5a, 0x21, 0x67, 0x69, 0x74, 0x68,
+	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x61, 0x6b, 0x72, 0x65, 0x6e, 0x6e, 0x6d, 0x61, 0x69,
+	0x72, 0x2f, 0x75, 0x70, 0x64, 0x6f, 0x67, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -383,27 +733,40 @@ func file_updog_proto_rawDescGZIP() []byte {
 	return file_updog_proto_rawDescData
 }
 
-var file_updog_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_updog_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_updog_proto_goTypes = []interface{}{
-	(*QueryRequest)(nil),  // 0: QueryRequest
-	(*QueryResponse)(nil), // 1: QueryResponse
-	(*Query)(nil),         // 2: Query
-	(*Result)(nil),        // 3: Result
-	(*PartialResult)(nil), // 4: PartialResult
-	(*Value)(nil),         // 5: Value
+	(*QueryRequest)(nil),             // 0: QueryRequest
+	(*QueryResponse)(nil),            // 1: QueryResponse
+	(*Query)(nil),                    // 2: Query
+	(*Result)(nil),                   // 3: Result
+	(*Query_Expression)(nil),         // 4: Query.Expression
+	(*Query_Expression_Equal)(nil),   // 5: Query.Expression.Equal
+	(*Query_Expression_Not)(nil),     // 6: Query.Expression.Not
+	(*Query_Expression_And)(nil),     // 7: Query.Expression.And
+	(*Query_Expression_Or)(nil),      // 8: Query.Expression.Or
+	(*Result_Group)(nil),             // 9: Result.Group
+	(*Result_Group_ResultField)(nil), // 10: Result.Group.ResultField
 }
 var file_updog_proto_depIdxs = []int32{
-	2, // 0: QueryRequest.queries:type_name -> Query
-	3, // 1: QueryResponse.results:type_name -> Result
-	4, // 2: Result.partial_results:type_name -> PartialResult
-	5, // 3: PartialResult.values:type_name -> Value
-	0, // 4: QueryService.Query:input_type -> QueryRequest
-	1, // 5: QueryService.Query:output_type -> QueryResponse
-	5, // [5:6] is the sub-list for method output_type
-	4, // [4:5] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	2,  // 0: QueryRequest.queries:type_name -> Query
+	3,  // 1: QueryResponse.results:type_name -> Result
+	4,  // 2: Query.expr:type_name -> Query.Expression
+	9,  // 3: Result.groups:type_name -> Result.Group
+	5,  // 4: Query.Expression.eq:type_name -> Query.Expression.Equal
+	6,  // 5: Query.Expression.not:type_name -> Query.Expression.Not
+	7,  // 6: Query.Expression.and:type_name -> Query.Expression.And
+	8,  // 7: Query.Expression.or:type_name -> Query.Expression.Or
+	4,  // 8: Query.Expression.Not.expr:type_name -> Query.Expression
+	4,  // 9: Query.Expression.And.exprs:type_name -> Query.Expression
+	4,  // 10: Query.Expression.Or.exprs:type_name -> Query.Expression
+	10, // 11: Result.Group.fields:type_name -> Result.Group.ResultField
+	0,  // 12: QueryService.Query:input_type -> QueryRequest
+	1,  // 13: QueryService.Query:output_type -> QueryResponse
+	13, // [13:14] is the sub-list for method output_type
+	12, // [12:13] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_updog_proto_init() }
@@ -461,7 +824,7 @@ func file_updog_proto_init() {
 			}
 		}
 		file_updog_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PartialResult); i {
+			switch v := v.(*Query_Expression); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -473,7 +836,67 @@ func file_updog_proto_init() {
 			}
 		}
 		file_updog_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Value); i {
+			switch v := v.(*Query_Expression_Equal); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_updog_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Query_Expression_Not); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_updog_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Query_Expression_And); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_updog_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Query_Expression_Or); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_updog_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Result_Group); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_updog_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Result_Group_ResultField); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -485,13 +908,19 @@ func file_updog_proto_init() {
 			}
 		}
 	}
+	file_updog_proto_msgTypes[4].OneofWrappers = []interface{}{
+		(*Query_Expression_Eq)(nil),
+		(*Query_Expression_Not_)(nil),
+		(*Query_Expression_And_)(nil),
+		(*Query_Expression_Or_)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_updog_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
