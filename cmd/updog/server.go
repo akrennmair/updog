@@ -6,10 +6,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 
 	"github.com/akrennmair/updog"
 	"github.com/akrennmair/updog/proto"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
@@ -27,6 +29,8 @@ func serverCmd(cfg *serverConfig) error {
 	var opts []updog.IndexOption
 
 	reg := prometheus.NewRegistry()
+	reg.MustRegister(collectors.NewGoCollector())
+	reg.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 
 	if cfg.enableCache {
 		cacheHitCounter := prometheus.NewCounter(
@@ -98,10 +102,31 @@ func serverCmd(cfg *serverConfig) error {
 	}))
 
 	go func() {
-		// TODO: change this to also expose pprof metrics.
-		http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
-		if err := http.ListenAndServe(cfg.debugAddr, nil); err != nil {
-			log.Printf("Error: failed to listen and serve prometheus metrics: %v", err)
+		mux := http.NewServeMux()
+
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+		mux.Handle("/metrics",
+			promhttp.InstrumentMetricHandler(
+				reg,
+				promhttp.HandlerFor(
+					reg,
+					promhttp.HandlerOpts{Registry: reg},
+				),
+			),
+		)
+
+		s := &http.Server{
+			Addr:    cfg.debugAddr,
+			Handler: mux,
+		}
+
+		if err := s.ListenAndServe(); err != nil {
+			log.Printf("Error: failed to listen and serve debug endpoints: %v", err)
 		}
 	}()
 
