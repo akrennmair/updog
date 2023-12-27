@@ -170,7 +170,7 @@ func TestValidQueryStrings(t *testing.T) {
 			},
 		},
 		{
-			QueryString: `^ foo = "bar" & bar = "baz"`,
+			QueryString: `^( foo = "bar" & bar = "baz" )`,
 			ExpectedQuery: &proto.Query{
 				Expr: &proto.Query_Expression{
 					Value: &proto.Query_Expression_Not_{
@@ -205,7 +205,7 @@ func TestValidQueryStrings(t *testing.T) {
 			},
 		},
 		{
-			QueryString: `(^ foo = "bar") & bar = "baz"`,
+			QueryString: `^ foo = "bar" & bar = "baz"`,
 			ExpectedQuery: &proto.Query{
 				Expr: &proto.Query_Expression{
 					Value: &proto.Query_Expression_And_{

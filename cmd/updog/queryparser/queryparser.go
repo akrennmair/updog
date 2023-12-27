@@ -19,7 +19,7 @@ import (
 // grouped-expr ::= '(' expr ')'.
 // and-expr ::= simple-expr { '&' simple-expr }.
 // or-expr ::= simple-expr { '|' simple-expr }.
-// not-expr ::= '^' expr.
+// not-expr ::= '^' simple-expr.
 // comparison ::= field '=' value.
 // field-list ::= field { ',' field } .
 
@@ -168,12 +168,12 @@ func (p *parser) parseSimpleExpr() *proto.Query_Expression {
 	case itemOpenParen:
 		return p.parseGroupedExpr()
 	case itemNot:
-		// not-expr ::= '^' expr.
+		// not-expr ::= '^' simple-expr.
 		p.next()
 		return &proto.Query_Expression{
 			Value: &proto.Query_Expression_Not_{
 				Not: &proto.Query_Expression_Not{
-					Expr: p.parseExpr(),
+					Expr: p.parseSimpleExpr(),
 				},
 			},
 		}
