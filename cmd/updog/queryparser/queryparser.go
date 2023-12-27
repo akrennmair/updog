@@ -386,6 +386,9 @@ func lexField(l *lexer) stateFn {
 func lexValue(l *lexer) stateFn {
 	seenFinalQuote := false // this is only there in case the closing " is the final character in the text to parse; mostly necessary for expression parsing testing.
 	r := l.next()
+	if r != '"' {
+		return l.errorf("expected \", got %c instead", r)
+	}
 	for r = l.next(); r != eof; r = l.next() {
 		if r == '"' { // if the current character is ", then we peek to the next one.
 			r = l.peek()

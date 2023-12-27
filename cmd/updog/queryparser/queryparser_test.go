@@ -151,6 +151,51 @@ func TestValidQueryStrings(t *testing.T) {
 			},
 		},
 		{
+			QueryString: `foo = "bar" | ( bar = "baz" & baz = "quux" )`,
+			ExpectedQuery: &proto.Query{
+				Expr: &proto.Query_Expression{
+					Value: &proto.Query_Expression_Or_{
+						Or: &proto.Query_Expression_Or{
+							Exprs: []*proto.Query_Expression{
+								{
+									Value: &proto.Query_Expression_Eq{
+										Eq: &proto.Query_Expression_Equal{
+											Column: "foo",
+											Value:  "bar",
+										},
+									},
+								},
+								{
+									Value: &proto.Query_Expression_And_{
+										And: &proto.Query_Expression_And{
+											Exprs: []*proto.Query_Expression{
+												{
+													Value: &proto.Query_Expression_Eq{
+														Eq: &proto.Query_Expression_Equal{
+															Column: "bar",
+															Value:  "baz",
+														},
+													},
+												},
+												{
+													Value: &proto.Query_Expression_Eq{
+														Eq: &proto.Query_Expression_Equal{
+															Column: "baz",
+															Value:  "quux",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			QueryString: `^ foo = "bar"`,
 			ExpectedQuery: &proto.Query{
 				Expr: &proto.Query_Expression{
@@ -170,7 +215,7 @@ func TestValidQueryStrings(t *testing.T) {
 			},
 		},
 		{
-			QueryString: `^( foo = "bar" & bar = "baz" )`,
+			QueryString: `^ ( foo = "bar" & bar = "baz" )`,
 			ExpectedQuery: &proto.Query{
 				Expr: &proto.Query_Expression{
 					Value: &proto.Query_Expression_Not_{
@@ -261,6 +306,9 @@ func TestValidQueryStrings(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, q)
 			require.Equal(t, tt.ExpectedQuery, q)
+
+			newQueryString := queryparser.QueryToString(q)
+			require.Equal(t, tt.QueryString, newQueryString)
 		})
 	}
 }
