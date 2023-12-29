@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/akrennmair/updog/proto"
+	proto "github.com/akrennmair/updog/proto/updog/v1"
 )
 
 func QueryToString(q *proto.Query) string {

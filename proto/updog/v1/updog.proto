@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package updog.v1;
+
 service QueryService {
 	rpc Query(QueryRequest) returns (QueryResponse);
 }

@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: updog.proto
+// source: updog/v1/updog.proto
 
-package proto
+package updogv1
 
 import (
 	context "context"
@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	QueryService_Query_FullMethodName = "/QueryService/Query"
+	QueryService_Query_FullMethodName = "/updog.v1.QueryService/Query"
 )
 
 // QueryServiceClient is the client API for QueryService service.
@@ -96,7 +96,7 @@ func _QueryService_Query_Handler(srv interface{}, ctx context.Context, dec func(
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var QueryService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "QueryService",
+	ServiceName: "updog.v1.QueryService",
 	HandlerType: (*QueryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -105,5 +105,5 @@ var QueryService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "updog.proto",
+	Metadata: "updog/v1/updog.proto",
 }

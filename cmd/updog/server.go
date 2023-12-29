@@ -9,7 +9,7 @@ import (
 	"net/http/pprof"
 
 	"github.com/akrennmair/updog"
-	"github.com/akrennmair/updog/proto"
+	proto "github.com/akrennmair/updog/proto/updog/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

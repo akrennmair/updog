@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/akrennmair/updog/proto"
+	proto "github.com/akrennmair/updog/proto/updog/v1"
 )
 
 // query syntax:

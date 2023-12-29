@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/akrennmair/updog/cmd/updog/queryparser"
-	"github.com/akrennmair/updog/proto"
+	proto "github.com/akrennmair/updog/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
