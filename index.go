@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"sort"
 	"sync"
 
 	"github.com/RoaringBitmap/roaring"
@@ -80,6 +81,46 @@ type Index struct {
 
 	cache   Cache
 	metrics *IndexMetrics
+}
+
+func (idx *Index) GetSchema() *Schema {
+	idx.mtx.RLock()
+	defer idx.mtx.RUnlock()
+
+	var cols []SchemaColumn
+
+	for colName, col := range idx.schema.Columns {
+		schCol := SchemaColumn{
+			Name: colName,
+		}
+
+		for v := range col.Values {
+			schCol.Values = append(schCol.Values, SchemaColumnValue{Value: v})
+		}
+
+		sort.Slice(schCol.Values, func(i, j int) bool { return schCol.Values[i].Value < schCol.Values[j].Value })
+
+		cols = append(cols, schCol)
+	}
+
+	sort.Slice(cols, func(i, j int) bool { return cols[i].Name < cols[j].Name })
+
+	return &Schema{
+		Columns: cols,
+	}
+}
+
+type Schema struct {
+	Columns []SchemaColumn
+}
+
+type SchemaColumn struct {
+	Name   string
+	Values []SchemaColumnValue
+}
+
+type SchemaColumnValue struct {
+	Value string
 }
 
 type colGetter interface {

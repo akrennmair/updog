@@ -70,7 +70,20 @@ func main() {
 
 	createCmd.PersistentFlags().StringVarP(&createCfg.outputFile, "output", "o", "out.updog", "output index file")
 
-	rootCmd.AddCommand(serverCmd, clientCmd, createCmd)
+	var schemaCfg schemaConfig
+
+	schemaCmd := &cobra.Command{
+		Use:   "schema",
+		Short: `Show schema of updog index file.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return schemaCmd(&schemaCfg)
+		},
+	}
+
+	schemaCmd.PersistentFlags().StringVarP(&schemaCfg.indexFile, "index-file", "f", "out.updog", "index file to introspect")
+	schemaCmd.PersistentFlags().BoolVar(&schemaCfg.full, "full", false, "show all available values")
+
+	rootCmd.AddCommand(serverCmd, clientCmd, createCmd, schemaCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("Error: %v", err)
