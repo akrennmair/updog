@@ -60,31 +60,25 @@ func createCmd(cfg *createConfig) error {
 			return fmt.Errorf("failed to create big index writer: %w", err)
 		}
 
-		if err := idx.TxnToAddRows(func(tx *bbolt.Tx) error {
-			for {
-				record, err := r.Read()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-					return fmt.Errorf("failed to read record: %w", err)
+		for {
+			record, err := r.Read()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
 				}
-
-				values := map[string]string{}
-
-				for idx, v := range record {
-					k := header[idx]
-					values[k] = v
-				}
-
-				if _, err := idx.AddRow(tx, values); err != nil {
-					return fmt.Errorf("failed to add row: %w", err)
-				}
+				return fmt.Errorf("failed to read record: %w", err)
 			}
 
-			return nil
-		}); err != nil {
-			return err
+			values := map[string]string{}
+
+			for idx, v := range record {
+				k := header[idx]
+				values[k] = v
+			}
+
+			if _, err := idx.AddRow(values); err != nil {
+				return fmt.Errorf("failed to add row: %w", err)
+			}
 		}
 
 		if err := idx.Flush(); err != nil {

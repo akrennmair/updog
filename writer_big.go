@@ -27,23 +27,28 @@ func NewBigIndexWriter(db *bbolt.DB, tempDB *bbolt.DB) (*BigIndexWriter, error) 
 		return nil, err
 	}
 
+	tx, err := idx.tempDB.Begin(true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start new transaction: %w", err)
+	}
+
+	idx.tempTx = tx
+
 	return idx, nil
 }
 
 type BigIndexWriter struct {
 	mtx sync.Mutex
 
-	schema    *schema
-	db        *bbolt.DB
-	tempDB    *bbolt.DB
+	schema *schema
+	db     *bbolt.DB
+	tempDB *bbolt.DB
+	tempTx *bbolt.Tx
+
 	nextRowID uint32
 }
 
-func (idx *BigIndexWriter) TxnToAddRows(fn func(tx *bbolt.Tx) error) error {
-	return idx.tempDB.Update(fn)
-}
-
-func (idx *BigIndexWriter) AddRow(tx *bbolt.Tx, values map[string]string) (uint32, error) {
+func (idx *BigIndexWriter) AddRow(values map[string]string) (uint32, error) {
 	idx.mtx.Lock()
 	defer idx.mtx.Unlock()
 
@@ -60,10 +65,22 @@ func (idx *BigIndexWriter) AddRow(tx *bbolt.Tx, values map[string]string) (uint3
 		binary.BigEndian.PutUint64(key[:8], valueIdx)
 		binary.BigEndian.PutUint32(key[8:], rowID)
 
-		bucket := tx.Bucket([]byte("temp"))
+		bucket := idx.tempTx.Bucket([]byte("temp"))
 
 		if err := bucket.Put(key[:], []byte{}); err != nil {
 			return 0, err
+		}
+	}
+
+	if rowID > 0 && rowID%1000 == 0 {
+		err := idx.tempTx.Commit()
+		if err != nil {
+			return 0, fmt.Errorf("failed to commit: %w", err)
+		}
+
+		idx.tempTx, err = idx.tempDB.Begin(true)
+		if err != nil {
+			return 0, fmt.Errorf("failed to start new transaction: %w", err)
 		}
 	}
 
@@ -71,59 +88,49 @@ func (idx *BigIndexWriter) AddRow(tx *bbolt.Tx, values map[string]string) (uint3
 }
 
 func (idx *BigIndexWriter) Flush() error {
-	return idx.tempDB.View(func(tempTx *bbolt.Tx) error {
-		return idx.db.Update(func(tx *bbolt.Tx) error {
-			tempBucket := tempTx.Bucket([]byte("temp"))
+	if err := idx.tempTx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
 
-			dataBucket, err := tx.CreateBucketIfNotExists([]byte("data"))
-			if err != nil {
-				return err
-			}
+	tempTx, err := idx.tempDB.Begin(false)
+	if err != nil {
+		return fmt.Errorf("failed to start new read-only transaction: %w", err)
+	}
+	defer tempTx.Rollback()
 
-			var (
-				currentValueIdx uint64
-				bm              *roaring.Bitmap
-			)
+	tempBucket := tempTx.Bucket([]byte("temp"))
 
-			// iterate over all keys in the temp bucket and decode the keys,
-			// create bitmaps from them, set values, and write bitmaps to data bucket.
-			cursor := tempBucket.Cursor()
+	tx, err := idx.db.Begin(true)
+	if err != nil {
+		return fmt.Errorf("failed to start new transaction: %w", err)
+	}
+	defer tx.Rollback()
 
-			for k, _ := cursor.First(); k != nil; k, _ = cursor.Next() {
-				if len(k) != 12 {
-					return fmt.Errorf("invalid temp key found with length %d", len(k))
-				}
+	dataBucket, err := tx.CreateBucketIfNotExists([]byte("data"))
+	if err != nil {
+		return err
+	}
 
-				valueIdx := binary.BigEndian.Uint64(k[:8])
-				rowID := binary.BigEndian.Uint32(k[8:])
+	var (
+		currentValueIdx uint64
+		bm              *roaring.Bitmap
+	)
 
-				if currentValueIdx != valueIdx {
-					// bm == nil indicates that this is for the first valueIdx, so we don't need to do
-					// a full rotate yet.
-					if bm != nil {
-						var keyBuf [8]byte
+	// iterate over all keys in the temp bucket and decode the keys,
+	// create bitmaps from them, set values, and write bitmaps to data bucket.
+	cursor := tempBucket.Cursor()
 
-						binary.BigEndian.PutUint64(keyBuf[:], currentValueIdx)
+	for k, _ := cursor.First(); k != nil; k, _ = cursor.Next() {
+		if len(k) != 12 {
+			return fmt.Errorf("invalid temp key found with length %d", len(k))
+		}
 
-						bm.RunOptimize()
-						valueBuf, err := bm.ToBytes()
-						if err != nil {
-							return err
-						}
+		valueIdx := binary.BigEndian.Uint64(k[:8])
+		rowID := binary.BigEndian.Uint32(k[8:])
 
-						if err := dataBucket.Put(append(keyPrefixValue, keyBuf[:]...), valueBuf); err != nil {
-							return err
-						}
-					}
-
-					currentValueIdx = valueIdx
-					bm = roaring.New()
-				}
-
-				bm.Add(rowID)
-			}
-
-			// write last bitmap to data bucket:
+		if currentValueIdx != valueIdx {
+			// bm == nil indicates that this is for the first valueIdx, so we don't need to do
+			// a full rotate yet.
 			if bm != nil {
 				var keyBuf [8]byte
 
@@ -140,27 +147,53 @@ func (idx *BigIndexWriter) Flush() error {
 				}
 			}
 
-			// write nextRowID to data bucket:
-			var rowIDbuf [4]byte
+			currentValueIdx = valueIdx
+			bm = roaring.New()
+		}
 
-			binary.BigEndian.PutUint32(rowIDbuf[:], idx.nextRowID)
+		bm.Add(rowID)
+	}
 
-			if err := dataBucket.Put(keyNextRowID, rowIDbuf[:]); err != nil {
-				return err
-			}
+	// write last bitmap to data bucket:
+	if bm != nil {
+		var keyBuf [8]byte
 
-			// write schema to data bucket:
-			var buf bytes.Buffer
+		binary.BigEndian.PutUint64(keyBuf[:], currentValueIdx)
 
-			if err := gob.NewEncoder(&buf).Encode(idx.schema); err != nil {
-				return err
-			}
+		bm.RunOptimize()
+		valueBuf, err := bm.ToBytes()
+		if err != nil {
+			return err
+		}
 
-			if err := dataBucket.Put(keySchema, buf.Bytes()); err != nil {
-				return err
-			}
+		if err := dataBucket.Put(append(keyPrefixValue, keyBuf[:]...), valueBuf); err != nil {
+			return err
+		}
+	}
 
-			return nil
-		})
-	})
+	// write nextRowID to data bucket:
+	var rowIDbuf [4]byte
+
+	binary.BigEndian.PutUint32(rowIDbuf[:], idx.nextRowID)
+
+	if err := dataBucket.Put(keyNextRowID, rowIDbuf[:]); err != nil {
+		return err
+	}
+
+	// write schema to data bucket:
+	var buf bytes.Buffer
+
+	if err := gob.NewEncoder(&buf).Encode(idx.schema); err != nil {
+		return err
+	}
+
+	if err := dataBucket.Put(keySchema, buf.Bytes()); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit changes: %w", err)
+	}
+
+	return nil
 }

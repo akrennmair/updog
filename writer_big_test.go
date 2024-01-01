@@ -26,10 +26,8 @@ func TestBigWriter(t *testing.T) {
 	idx, err := updog.NewBigIndexWriter(db, tempDB)
 	require.NoError(t, err)
 
-	require.NoError(t, tempDB.Update(func(tx *bbolt.Tx) error {
-		_, err := idx.AddRow(tx, map[string]string{"a": "1", "b": "2"})
-		return err
-	}))
+	_, err = idx.AddRow(map[string]string{"a": "1", "b": "2"})
+	require.NoError(t, err)
 
 	require.NoError(t, idx.Flush())
 

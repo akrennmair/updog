@@ -3,11 +3,19 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/spf13/cobra"
 )
 
 func main() {
+	var (
+		cpuprofile string
+		memprofile string
+		cpuf       *os.File
+	)
+
 	rootCmd := &cobra.Command{
 		Use:   "updog",
 		Short: `updog is a static index to quickly count elements and optionally group them.`,
@@ -18,7 +26,44 @@ func main() {
 
 			return nil
 		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if cpuprofile != "" {
+				f, err := os.Create(cpuprofile)
+				if err != nil {
+					return fmt.Errorf("could not create CPU profile: %w", err)
+				}
+				cpuf = f
+				if err := pprof.StartCPUProfile(f); err != nil {
+					return fmt.Errorf("could not start CPU profile: %w", err)
+				}
+			}
+
+			return nil
+		},
+		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			if cpuprofile != "" {
+				pprof.StopCPUProfile()
+				cpuf.Close()
+			}
+
+			if memprofile != "" {
+				f, err := os.Create(memprofile)
+				if err != nil {
+					return fmt.Errorf("could not create memory profile: %w", err)
+				}
+				defer f.Close()
+				runtime.GC()
+				if err := pprof.WriteHeapProfile(f); err != nil {
+					return fmt.Errorf("could not write memory profile: %w", err)
+				}
+			}
+
+			return nil
+		},
 	}
+
+	rootCmd.PersistentFlags().StringVar(&cpuprofile, "cpuprofile", "", "if non-empty, write CPU profile to this file")
+	rootCmd.PersistentFlags().StringVar(&memprofile, "memprofile", "", "if non-empty, write memory profile to this file")
 
 	var serverCfg serverConfig
 
