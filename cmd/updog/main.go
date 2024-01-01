@@ -11,9 +11,10 @@ import (
 
 func main() {
 	var (
-		cpuprofile string
-		memprofile string
-		cpuf       *os.File
+		cpuprofile     string
+		memprofile     string
+		memprofilerate int
+		cpuf           *os.File
 	)
 
 	rootCmd := &cobra.Command{
@@ -36,6 +37,10 @@ func main() {
 				if err := pprof.StartCPUProfile(f); err != nil {
 					return fmt.Errorf("could not start CPU profile: %w", err)
 				}
+			}
+
+			if memprofile != "" {
+				runtime.MemProfileRate = memprofilerate
 			}
 
 			return nil
@@ -64,6 +69,7 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&cpuprofile, "cpuprofile", "", "if non-empty, write CPU profile to this file")
 	rootCmd.PersistentFlags().StringVar(&memprofile, "memprofile", "", "if non-empty, write memory profile to this file")
+	rootCmd.PersistentFlags().IntVar(&memprofilerate, "memprofilerate", runtime.MemProfileRate, "memory profile rate")
 
 	var serverCfg serverConfig
 

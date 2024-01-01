@@ -96,7 +96,9 @@ func (idx *BigIndexWriter) Flush() error {
 	if err != nil {
 		return fmt.Errorf("failed to start new read-only transaction: %w", err)
 	}
-	defer tempTx.Rollback()
+	defer func() {
+		_ = tempTx.Rollback()
+	}()
 
 	tempBucket := tempTx.Bucket([]byte("temp"))
 
@@ -104,7 +106,9 @@ func (idx *BigIndexWriter) Flush() error {
 	if err != nil {
 		return fmt.Errorf("failed to start new transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	dataBucket, err := tx.CreateBucketIfNotExists([]byte("data"))
 	if err != nil {

@@ -12,7 +12,7 @@ import (
 )
 
 func TestQuery(t *testing.T) {
-	idxWriter := NewIndexWriter()
+	idxWriter := NewIndexWriter("")
 
 	idxWriter.AddRow(map[string]string{"a": "1", "b": "2", "c": "3"})
 	idxWriter.AddRow(map[string]string{"a": "2", "b": "2", "c": "3"})
@@ -209,7 +209,7 @@ func TestQuery(t *testing.T) {
 }
 
 func TestQueryGroupBy(t *testing.T) {
-	idxWriter := NewIndexWriter()
+	idxWriter := NewIndexWriter("")
 
 	idxWriter.AddRow(map[string]string{"a": "1", "b": "2", "c": "3", "x": "true"})
 	idxWriter.AddRow(map[string]string{"a": "2", "b": "2", "c": "3", "x": "true"})
@@ -384,7 +384,7 @@ func TestQueryGroupBy(t *testing.T) {
 const x = 7324239828
 
 func BenchmarkQuery(b *testing.B) {
-	idxWriter := NewIndexWriter()
+	idxWriter := NewIndexWriter("")
 
 	getRandomRow := func() map[string]string {
 		row := make(map[string]string)

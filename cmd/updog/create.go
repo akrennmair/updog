@@ -19,6 +19,11 @@ type createConfig struct {
 	big        bool
 }
 
+type indexWriter interface {
+	AddRow(values map[string]string) (uint32, error)
+	Flush() error
+}
+
 func createCmd(cfg *createConfig) error {
 	f, err := os.Open(cfg.inputFile)
 	if err != nil {
@@ -34,6 +39,8 @@ func createCmd(cfg *createConfig) error {
 	}
 
 	header = normalizeHeader(header)
+
+	var iw indexWriter
 
 	if cfg.big {
 		tempFile, err := os.CreateTemp("", "updog_*.tmp")
@@ -60,35 +67,11 @@ func createCmd(cfg *createConfig) error {
 			return fmt.Errorf("failed to create big index writer: %w", err)
 		}
 
-		for {
-			record, err := r.Read()
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					break
-				}
-				return fmt.Errorf("failed to read record: %w", err)
-			}
-
-			values := map[string]string{}
-
-			for idx, v := range record {
-				k := header[idx]
-				values[k] = v
-			}
-
-			if _, err := idx.AddRow(values); err != nil {
-				return fmt.Errorf("failed to add row: %w", err)
-			}
-		}
-
-		if err := idx.Flush(); err != nil {
-			return fmt.Errorf("failed to flush big index writer: %w", err)
-		}
-
-		return nil
+		iw = idx
+	} else {
+		idx := updog.NewIndexWriter(cfg.outputFile)
+		iw = idx
 	}
-
-	idx := updog.NewIndexWriter()
 
 	for {
 		record, err := r.Read()
@@ -106,11 +89,13 @@ func createCmd(cfg *createConfig) error {
 			values[k] = v
 		}
 
-		idx.AddRow(values)
+		if _, err := iw.AddRow(values); err != nil {
+			return fmt.Errorf("failed to add row: %w", err)
+		}
 	}
 
-	if err := idx.WriteToFile(cfg.outputFile); err != nil {
-		return fmt.Errorf("failed to write output to %s: %w", cfg.outputFile, err)
+	if err := iw.Flush(); err != nil {
+		return fmt.Errorf("failed to flush big index writer: %w", err)
 	}
 
 	return nil
