@@ -39,6 +39,10 @@ type BigIndexWriter struct {
 	nextRowID uint32
 }
 
+func (idx *BigIndexWriter) TxnToAddRows(fn func(tx *bbolt.Tx) error) error {
+	return idx.tempDB.Update(fn)
+}
+
 func (idx *BigIndexWriter) AddRow(tx *bbolt.Tx, values map[string]string) (uint32, error) {
 	idx.mtx.Lock()
 	defer idx.mtx.Unlock()

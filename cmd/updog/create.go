@@ -60,7 +60,7 @@ func createCmd(cfg *createConfig) error {
 			return fmt.Errorf("failed to create big index writer: %w", err)
 		}
 
-		if err := tempDB.Update(func(tx *bbolt.Tx) error {
+		if err := idx.TxnToAddRows(func(tx *bbolt.Tx) error {
 			for {
 				record, err := r.Read()
 				if err != nil {
