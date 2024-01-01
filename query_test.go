@@ -134,6 +134,46 @@ func TestQuery(t *testing.T) {
 	runTests := func(t *testing.T, idx *Index) {
 		for _, tt := range testData {
 			t.Run(tt.name, func(t *testing.T) {
+				schema := idx.GetSchema()
+				require.Equal(t, &Schema{Columns: []SchemaColumn{
+					{
+						Name: "a",
+						Values: []SchemaColumnValue{
+							{
+								Value: "1",
+							},
+							{
+								Value: "2",
+							},
+							{
+								Value: "3",
+							},
+						},
+					},
+					{
+						Name: "b",
+						Values: []SchemaColumnValue{
+							{
+								Value: "2",
+							},
+							{
+								Value: "4",
+							},
+						},
+					},
+					{
+						Name: "c",
+						Values: []SchemaColumnValue{
+							{
+								Value: "3",
+							},
+							{
+								Value: "5",
+							},
+						},
+					},
+				}}, schema)
+
 				t.Logf("query = %s", tt.query.Expr.String())
 				result, err := idx.Execute(tt.query)
 				require.NoError(t, err)
