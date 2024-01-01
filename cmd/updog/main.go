@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -69,6 +68,7 @@ func main() {
 	}
 
 	createCmd.PersistentFlags().StringVarP(&createCfg.outputFile, "output", "o", "out.updog", "output index file")
+	createCmd.PersistentFlags().BoolVarP(&createCfg.big, "big", "b", false, "enable big mode that allows you to create files larger than the available memory, but creation will be slower")
 
 	var schemaCfg schemaConfig
 
@@ -86,6 +86,6 @@ func main() {
 	rootCmd.AddCommand(serverCmd, clientCmd, createCmd, schemaCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatalf("Error: %v", err)
+		fmt.Printf("Error: %v\n", err)
 	}
 }

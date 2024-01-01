@@ -34,7 +34,7 @@ func (idx *IndexWriter) AddRow(values map[string]string) uint32 {
 	}()
 
 	for k, v := range values {
-		valueIdx := idx.addToSchema(k, v)
+		valueIdx := idx.schema.add(k, v)
 
 		bm := idx.getValueBitmap(valueIdx)
 
@@ -42,24 +42,6 @@ func (idx *IndexWriter) AddRow(values map[string]string) uint32 {
 	}
 
 	return rowID
-}
-
-func (idx *IndexWriter) addToSchema(k, v string) uint64 {
-	col, ok := idx.schema.Columns[k]
-	if !ok {
-		col = &column{
-			Values: make(map[string]uint64),
-		}
-		idx.schema.Columns[k] = col
-	}
-
-	val, ok := col.Values[v]
-	if !ok {
-		val = getValueIndex(k, v)
-		col.Values[v] = val
-	}
-
-	return val
 }
 
 func getValueIndex(k, v string) uint64 {
@@ -102,6 +84,8 @@ func (idx *IndexWriter) WriteToFile(f string) error {
 	if err != nil {
 		return err
 	}
+
+	defer db.Close()
 
 	return idx.WriteToBoltDatabase(db)
 }
