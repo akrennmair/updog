@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -86,6 +87,6 @@ func main() {
 	rootCmd.AddCommand(serverCmd, clientCmd, createCmd, schemaCmd)
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 }

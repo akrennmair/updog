@@ -8,12 +8,13 @@ import (
 	"sync"
 
 	"github.com/RoaringBitmap/roaring"
+	"github.com/akrennmair/updog/internal/openfile"
 	"go.etcd.io/bbolt"
 )
 
 // OpenIndex opens an index file previously created using the IndexWriter.
 func OpenIndex(file string, opts ...IndexOption) (*Index, error) {
-	db, err := bbolt.Open(file, 0644, &bbolt.Options{})
+	db, err := bbolt.Open(file, 0644, &bbolt.Options{OpenFile: openfile.OpenFile(openfile.Options{FailIfFileDoesntExist: true})})
 	if err != nil {
 		return nil, err
 	}

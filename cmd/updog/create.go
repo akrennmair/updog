@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/akrennmair/updog"
+	"github.com/akrennmair/updog/internal/openfile"
 	"go.etcd.io/bbolt"
 )
 
@@ -42,13 +43,13 @@ func createCmd(cfg *createConfig) error {
 		tempFile.Close()
 		defer os.Remove(tempFile.Name())
 
-		tempDB, err := bbolt.Open(tempFile.Name(), 0600, nil)
+		tempDB, err := bbolt.Open(tempFile.Name(), 0600, &bbolt.Options{OpenFile: openfile.OpenFile(openfile.Options{FailIfFileDoesntExist: true})})
 		if err != nil {
 			return fmt.Errorf("failed to create temporary database: %w", err)
 		}
 		defer tempDB.Close()
 
-		db, err := bbolt.Open(cfg.outputFile, 0644, &bbolt.Options{})
+		db, err := bbolt.Open(cfg.outputFile, 0644, &bbolt.Options{OpenFile: openfile.OpenFile(openfile.Options{FailIfFileExists: true})})
 		if err != nil {
 			return fmt.Errorf("failed to open output file: %w", err)
 		}

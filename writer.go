@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/RoaringBitmap/roaring"
+	"github.com/akrennmair/updog/internal/openfile"
 	"github.com/cespare/xxhash/v2"
 	"go.etcd.io/bbolt"
 )
@@ -80,7 +81,7 @@ var (
 
 // WriteToFile writes the index data to the provided file.
 func (idx *IndexWriter) WriteToFile(f string) error {
-	db, err := bbolt.Open(f, 0644, &bbolt.Options{})
+	db, err := bbolt.Open(f, 0644, &bbolt.Options{OpenFile: openfile.OpenFile(openfile.Options{FailIfFileExists: true})})
 	if err != nil {
 		return err
 	}
