@@ -9,12 +9,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type globalConfig struct {
+	cpuprofile     string
+	memprofile     string
+	memprofilerate int
+	verbose        bool
+}
+
 func main() {
 	var (
-		cpuprofile     string
-		memprofile     string
-		memprofilerate int
-		cpuf           *os.File
+		cfg  globalConfig
+		cpuf *os.File
 	)
 
 	rootCmd := &cobra.Command{
@@ -28,8 +33,8 @@ func main() {
 			return nil
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if cpuprofile != "" {
-				f, err := os.Create(cpuprofile)
+			if cfg.cpuprofile != "" {
+				f, err := os.Create(cfg.cpuprofile)
 				if err != nil {
 					return fmt.Errorf("could not create CPU profile: %w", err)
 				}
@@ -39,20 +44,20 @@ func main() {
 				}
 			}
 
-			if memprofile != "" {
-				runtime.MemProfileRate = memprofilerate
+			if cfg.memprofile != "" {
+				runtime.MemProfileRate = cfg.memprofilerate
 			}
 
 			return nil
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
-			if cpuprofile != "" {
+			if cfg.cpuprofile != "" {
 				pprof.StopCPUProfile()
 				cpuf.Close()
 			}
 
-			if memprofile != "" {
-				f, err := os.Create(memprofile)
+			if cfg.memprofile != "" {
+				f, err := os.Create(cfg.memprofile)
 				if err != nil {
 					return fmt.Errorf("could not create memory profile: %w", err)
 				}
@@ -67,9 +72,10 @@ func main() {
 		},
 	}
 
-	rootCmd.PersistentFlags().StringVar(&cpuprofile, "cpuprofile", "", "if non-empty, write CPU profile to this file")
-	rootCmd.PersistentFlags().StringVar(&memprofile, "memprofile", "", "if non-empty, write memory profile to this file")
-	rootCmd.PersistentFlags().IntVar(&memprofilerate, "memprofilerate", runtime.MemProfileRate, "memory profile rate")
+	rootCmd.PersistentFlags().StringVar(&cfg.cpuprofile, "cpuprofile", "", "if non-empty, write CPU profile to this file")
+	rootCmd.PersistentFlags().StringVar(&cfg.memprofile, "memprofile", "", "if non-empty, write memory profile to this file")
+	rootCmd.PersistentFlags().IntVar(&cfg.memprofilerate, "memprofilerate", runtime.MemProfileRate, "memory profile rate")
+	rootCmd.PersistentFlags().BoolVarP(&cfg.verbose, "verbose", "v", false, "if enabled, make output more verbose")
 
 	var serverCfg serverConfig
 
@@ -115,7 +121,7 @@ func main() {
 
 			createCfg.inputFile = args[0]
 
-			return createCmd(&createCfg)
+			return createCmd(&cfg, &createCfg)
 		},
 	}
 

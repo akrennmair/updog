@@ -24,7 +24,7 @@ type indexWriter interface {
 	Flush() error
 }
 
-func createCmd(cfg *createConfig) error {
+func createCmd(globalCfg *globalConfig, cfg *createConfig) error {
 	f, err := os.Open(cfg.inputFile)
 	if err != nil {
 		return fmt.Errorf("failed to open input file: %w", err)
@@ -73,6 +73,8 @@ func createCmd(cfg *createConfig) error {
 		iw = idx
 	}
 
+	idx := 0
+
 	for {
 		record, err := r.Read()
 		if err != nil {
@@ -92,10 +94,24 @@ func createCmd(cfg *createConfig) error {
 		if _, err := iw.AddRow(values); err != nil {
 			return fmt.Errorf("failed to add row: %w", err)
 		}
+
+		idx++
+
+		if globalCfg.verbose && idx%10000 == 0 {
+			fmt.Printf("Added %d rows...\n", idx)
+		}
+	}
+
+	if globalCfg.verbose {
+		fmt.Printf("Flushing data...\n")
 	}
 
 	if err := iw.Flush(); err != nil {
 		return fmt.Errorf("failed to flush big index writer: %w", err)
+	}
+
+	if globalCfg.verbose {
+		fmt.Printf("Flushing done")
 	}
 
 	return nil
