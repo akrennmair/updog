@@ -125,6 +125,10 @@ type fileConn struct {
 }
 
 func (c *fileConn) Prepare(query string) (driver.Stmt, error) {
+	return c.prepare(query)
+}
+
+func (c *fileConn) prepare(query string) (*fileStmt, error) {
 	q, err := queryparser.ParseQuery(query)
 	if err != nil {
 		return nil, fmt.Errorf("parsing query failed: %v", err)
@@ -175,7 +179,7 @@ func (c *fileConn) IsValid() bool {
 }
 
 func (c *fileConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	stmt, err := c.Prepare(query)
+	stmt, err := c.prepare(query)
 	if err != nil {
 		return nil, err
 	}
@@ -188,13 +192,26 @@ func (c *fileConn) QueryContext(ctx context.Context, query string, args []driver
 		}
 	}
 
-	values := make([]driver.Value, size)
+	values := make([]string, size)
 
 	for _, a := range args {
-		values[a.Ordinal-1] = a.Value
+		values[a.Ordinal-1] = fmt.Sprint(a.Value)
 	}
 
-	return stmt.Query(values)
+	return stmt.query(values)
+}
+
+func (stmt *fileStmt) query(values []string) (driver.Rows, error) {
+	q := queryparser.ReplacePlaceholders(stmt.q, values)
+
+	qq := convert.ToQuery(q)
+
+	result, err := stmt.c.idx.Execute(qq)
+	if err != nil {
+		return nil, err
+	}
+
+	return newRows(result, q.GroupBy), nil
 }
 
 func (c *fileConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
@@ -236,20 +253,10 @@ func (stmt *fileStmt) Query(args []driver.Value) (driver.Rows, error) {
 		values = append(values, fmt.Sprint(a))
 	}
 
-	q := queryparser.ReplacePlaceholders(stmt.q, values)
-
-	qq := convert.ToQuery(q)
-
-	result, err := stmt.c.idx.Execute(qq)
-	if err != nil {
-		return nil, err
-	}
-
-	return newRows(result, q.GroupBy), nil
+	return stmt.query(values)
 }
 
 func newRows(result *updog.Result, groupBy []string) *rows {
-
 	r := &rows{
 		cols: append(groupBy, "count"),
 	}
