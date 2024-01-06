@@ -21,7 +21,13 @@ import (
 )
 
 func init() {
-	sql.Register("updog", &updogDriver{})
+	sql.Register("updog", newUpdogDriver())
+}
+
+func newUpdogDriver() *updogDriver {
+	return &updogDriver{
+		fileConnCache: map[fileCacheKey]*fileConn{},
+	}
 }
 
 type updogDriver struct {
@@ -37,7 +43,11 @@ func (d *updogDriver) Open(name string) (driver.Conn, error) {
 
 	switch u.Scheme {
 	case "file":
-		return d.openFile(u.Path, u.Query())
+		filepath := u.Opaque
+		if filepath == "" {
+			filepath = u.Path
+		}
+		return d.openFile(filepath, u.Query())
 	case "grpc":
 		return d.openConn(u.Hostname(), u.Port())
 	default:
@@ -212,7 +222,7 @@ func (stmt *fileStmt) NumInput() int {
 		return true
 	})
 
-	return int(maxPlaceholder - 1)
+	return int(maxPlaceholder)
 }
 
 func (stmt *fileStmt) Exec(args []driver.Value) (driver.Result, error) {
