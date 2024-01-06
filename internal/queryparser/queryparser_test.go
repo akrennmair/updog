@@ -3,7 +3,7 @@ package queryparser_test
 import (
 	"testing"
 
-	"github.com/akrennmair/updog/cmd/updog/queryparser"
+	"github.com/akrennmair/updog/internal/queryparser"
 	proto "github.com/akrennmair/updog/proto/updog/v1"
 	"github.com/stretchr/testify/require"
 )

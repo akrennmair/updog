@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/akrennmair/updog/cmd/updog/queryparser"
+	"github.com/akrennmair/updog/internal/queryparser"
 	proto "github.com/akrennmair/updog/proto/updog/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

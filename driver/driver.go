@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 
 	"github.com/akrennmair/updog"
-	"github.com/akrennmair/updog/cmd/updog/queryparser"
 	"github.com/akrennmair/updog/internal/convert"
+	"github.com/akrennmair/updog/internal/queryparser"
 	updogv1 "github.com/akrennmair/updog/proto/updog/v1"
 )
 
