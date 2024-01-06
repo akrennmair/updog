@@ -9,6 +9,7 @@ import (
 	"net/http/pprof"
 
 	"github.com/akrennmair/updog"
+	"github.com/akrennmair/updog/internal/convert"
 	proto "github.com/akrennmair/updog/proto/updog/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -162,7 +163,7 @@ func (s *server) Query(ctx context.Context, req *proto.QueryRequest) (*proto.Que
 	// TODO: execute queries concurrently.
 
 	for idx, pbq := range req.Queries {
-		q := convertToQuery(pbq)
+		q := convert.ToQuery(pbq)
 
 		qid := pbq.Id
 		if qid == 0 {
@@ -174,67 +175,10 @@ func (s *server) Query(ctx context.Context, req *proto.QueryRequest) (*proto.Que
 			return nil, err
 		}
 
-		pbr := convertToProtobufResult(result, qid)
+		pbr := convert.ToProtobufResult(result, qid)
 
 		resp.Results = append(resp.Results, pbr)
 	}
 
 	return &resp, nil
-}
-
-func convertToQuery(pbq *proto.Query) *updog.Query {
-	return &updog.Query{
-		Expr:    convertToExpr(pbq.Expr),
-		GroupBy: pbq.GroupBy,
-	}
-}
-
-func convertToExpr(pbe *proto.Query_Expression) updog.Expression {
-	switch v := pbe.Value.(type) {
-	case *proto.Query_Expression_Eq:
-		return &updog.ExprEqual{
-			Column: v.Eq.Column,
-			Value:  v.Eq.Value,
-		}
-	case *proto.Query_Expression_Not_:
-		return &updog.ExprNot{
-			Expr: convertToExpr(v.Not.Expr),
-		}
-	case *proto.Query_Expression_And_:
-		e := &updog.ExprAnd{}
-		for _, ee := range v.And.Exprs {
-			e.Exprs = append(e.Exprs, convertToExpr(ee))
-		}
-		return e
-	case *proto.Query_Expression_Or_:
-		e := &updog.ExprOr{}
-		for _, ee := range v.Or.Exprs {
-			e.Exprs = append(e.Exprs, convertToExpr(ee))
-		}
-		return e
-	default:
-		return nil
-	}
-}
-
-func convertToProtobufResult(result *updog.Result, qid int32) *proto.Result {
-	pbr := &proto.Result{QueryId: qid, TotalCount: result.Count}
-
-	for _, g := range result.Groups {
-		fields := []*proto.Result_Group_ResultField{}
-
-		for _, f := range g.Fields {
-			fields = append(fields, &proto.Result_Group_ResultField{
-				Column: f.Column,
-				Value:  f.Value,
-			})
-		}
-
-		pbr.Groups = append(pbr.Groups, &proto.Result_Group{
-			Count:  g.Count,
-			Fields: fields,
-		})
-	}
-
-	return pbr
 }

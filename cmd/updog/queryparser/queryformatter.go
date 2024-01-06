@@ -33,6 +33,10 @@ func exprToString(b *strings.Builder, expr *proto.Query_Expression) {
 }
 
 func equalExprToString(b *strings.Builder, expr *proto.Query_Expression_Equal) {
+	if expr.Placeholder > 0 {
+		fmt.Fprintf(b, "%s = $%d", expr.Column, expr.Placeholder)
+		return
+	}
 	fmt.Fprintf(b, "%s = %s", expr.Column, formatString(expr.Value))
 }
 

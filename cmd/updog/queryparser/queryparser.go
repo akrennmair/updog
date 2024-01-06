@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"runtime"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -20,8 +21,13 @@ import (
 // and-expr ::= simple-expr { '&' simple-expr }.
 // or-expr ::= simple-expr { '|' simple-expr }.
 // not-expr ::= '^' simple-expr.
-// comparison ::= field '=' value.
+// comparison ::= field '=' ( value | placeholder ).
 // field-list ::= field { ',' field } .
+// value ::= '"' { string-character } '"' .
+// string-character ::= any-character-except-quote | """" .
+// placeholder ::= '$' number .
+// number ::= digit { digit } .
+// digit ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" .
 
 func ParseQuery(q string) (pq *proto.Query, err error) {
 	p := newParser(q)
@@ -208,17 +214,29 @@ func (p *parser) parseComparison() *proto.Query_Expression {
 	}
 	p.next()
 
-	if p.peek().typ != itemValue {
-		p.errorf("expected value, got %s instead", p.next())
-	}
+	var (
+		value       string
+		placeholder int
+	)
 
-	value := p.next()
+	switch p.peek().typ {
+	case itemPlaceholder:
+		placeholder = decodePlaceholder(p.next().val)
+		if placeholder < 1 {
+			p.errorf("invalid placeholder %d; must be 1 or greater", placeholder)
+		}
+	case itemValue:
+		value = decodeString(p.next().val)
+	default:
+		p.errorf("expected value or placeholder, got %s instead", p.next())
+	}
 
 	return &proto.Query_Expression{
 		Value: &proto.Query_Expression_Eq{
 			Eq: &proto.Query_Expression_Equal{
-				Column: column.val,
-				Value:  decodeString(value.val),
+				Column:      column.val,
+				Value:       value,
+				Placeholder: int32(placeholder),
 			},
 		},
 	}
@@ -239,6 +257,15 @@ func decodeString(s string) string {
 	}
 
 	return strings.ReplaceAll(s, `""`, `"`)
+}
+
+func decodePlaceholder(s string) int {
+	if len(s) < 2 {
+		return 0
+	}
+
+	i, _ := strconv.Atoi(s[1:])
+	return i
 }
 
 func (p *parser) parseFieldList() []string {
@@ -310,6 +337,7 @@ const (
 	itemSemicolon
 	itemField
 	itemValue
+	itemPlaceholder
 )
 
 func lex(input string) *lexer {
@@ -370,6 +398,8 @@ func lexText(l *lexer) stateFn {
 		return lexField
 	case r == '"':
 		return lexValue
+	case r == '$':
+		return lexPlaceholder
 	case r == eof:
 		l.emit(itemEOF)
 		return nil
@@ -403,6 +433,17 @@ func lexValue(l *lexer) stateFn {
 	if seenFinalQuote || r != eof {
 		l.emit(itemValue)
 	}
+	return lexText
+}
+
+func lexPlaceholder(l *lexer) stateFn {
+	r := l.next()
+	if r != '$' {
+		return l.errorf("expected $, got %c instead", r)
+	}
+
+	l.acceptRun("0123456789")
+	l.emit(itemPlaceholder)
 	return lexText
 }
 

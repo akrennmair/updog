@@ -21,6 +21,7 @@ message Query {
 		message Equal {
 			string column = 1;
 			string value = 2;
+			int32 placeholder = 3;
 		}
 
 		message Not {

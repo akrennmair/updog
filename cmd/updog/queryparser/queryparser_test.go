@@ -298,6 +298,48 @@ func TestValidQueryStrings(t *testing.T) {
 				GroupBy: []string{"bar", "baz", "quux"},
 			},
 		},
+		{
+			QueryString: `foo = $1`,
+			ExpectedQuery: &proto.Query{
+				Expr: &proto.Query_Expression{
+					Value: &proto.Query_Expression_Eq{
+						Eq: &proto.Query_Expression_Equal{
+							Column:      "foo",
+							Placeholder: 1,
+						},
+					},
+				},
+			},
+		},
+		{
+			QueryString: `foo = $1 & bar = $2`,
+			ExpectedQuery: &proto.Query{
+				Expr: &proto.Query_Expression{
+					Value: &proto.Query_Expression_And_{
+						And: &proto.Query_Expression_And{
+							Exprs: []*proto.Query_Expression{
+								{
+									Value: &proto.Query_Expression_Eq{
+										Eq: &proto.Query_Expression_Equal{
+											Column:      "foo",
+											Placeholder: 1,
+										},
+									},
+								},
+								{
+									Value: &proto.Query_Expression_Eq{
+										Eq: &proto.Query_Expression_Equal{
+											Column:      "bar",
+											Placeholder: 2,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range testData {
@@ -323,6 +365,8 @@ func TestInvalidQueryStrings(t *testing.T) {
 		{`a = "b" ; "c"`},
 		{`a = "b" ; c, d, ^`},
 		{`!`},
+		{"a = $fart"},
+		{"b = $0"},
 	}
 
 	for _, tt := range testData {
