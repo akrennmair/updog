@@ -61,3 +61,24 @@ func ToProtobufResult(result *updog.Result, qid int32) *proto.Result {
 
 	return pbr
 }
+
+func ToResult(pr *proto.Result) *updog.Result {
+	r := &updog.Result{Count: pr.TotalCount}
+
+	for _, g := range pr.Groups {
+		gg := updog.ResultGroup{
+			Count: g.Count,
+		}
+
+		for _, f := range g.Fields {
+			gg.Fields = append(gg.Fields, updog.ResultField{
+				Column: f.Column,
+				Value:  f.Value,
+			})
+		}
+
+		r.Groups = append(r.Groups, gg)
+	}
+
+	return r
+}

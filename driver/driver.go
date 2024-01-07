@@ -18,6 +18,8 @@ import (
 	"github.com/akrennmair/updog/internal/convert"
 	"github.com/akrennmair/updog/internal/queryparser"
 	updogv1 "github.com/akrennmair/updog/proto/updog/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func init() {
@@ -115,7 +117,12 @@ func (d *updogDriver) openFile(file string, optValues url.Values) (driver.Conn, 
 }
 
 func (d *updogDriver) openConn(host string, port string) (driver.Conn, error) {
-	return nil, errors.New("gRPC support not implemented")
+	conn, err := grpc.Dial(host+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial: %w", err)
+	}
+
+	return &grpcConn{conn: conn, client: updogv1.NewQueryServiceClient(conn)}, nil
 }
 
 type fileConn struct {
@@ -227,10 +234,10 @@ func (stmt *fileStmt) Close() error {
 	return nil
 }
 
-func (stmt *fileStmt) NumInput() int {
+func numInput(q *updogv1.Query) int {
 	maxPlaceholder := int32(0)
 
-	queryparser.Walk(stmt.q, func(e *updogv1.Query_Expression) bool {
+	queryparser.Walk(q, func(e *updogv1.Query_Expression) bool {
 		if v, ok := e.Value.(*updogv1.Query_Expression_Eq); ok {
 			if v.Eq.Placeholder > maxPlaceholder {
 				maxPlaceholder = v.Eq.Placeholder
@@ -240,6 +247,10 @@ func (stmt *fileStmt) NumInput() int {
 	})
 
 	return int(maxPlaceholder)
+}
+
+func (stmt *fileStmt) NumInput() int {
+	return numInput(stmt.q)
 }
 
 func (stmt *fileStmt) Exec(args []driver.Value) (driver.Result, error) {
@@ -343,4 +354,101 @@ func (r *rows) ColumnTypeNullable(index int) (nullable, ok bool) {
 
 func (r *rows) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
 	return 0, 0, false
+}
+
+type grpcConn struct {
+	conn   *grpc.ClientConn
+	client updogv1.QueryServiceClient
+}
+
+func (c *grpcConn) Prepare(query string) (driver.Stmt, error) {
+	return c.prepare(query)
+}
+
+func (c *grpcConn) prepare(query string) (*grpcStmt, error) {
+	q, err := queryparser.ParseQuery(query)
+	if err != nil {
+		return nil, fmt.Errorf("parsing query failed: %v", err)
+	}
+
+	return &grpcStmt{
+		c: c,
+		q: q,
+	}, nil
+}
+
+func (c *grpcConn) Close() error {
+	return c.conn.Close()
+}
+
+func (c *grpcConn) Begin() (driver.Tx, error) {
+	return c, nil
+}
+
+func (c *grpcConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return c, nil
+}
+
+func (c *grpcConn) Commit() error {
+	return nil
+}
+
+func (c *grpcConn) Rollback() error {
+	return nil
+}
+
+func (c *grpcConn) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (c *grpcConn) ResetSession(ctx context.Context) error {
+	return nil
+}
+
+func (c *grpcConn) IsValid() bool {
+	return c.conn != nil && c.client != nil
+}
+
+type grpcStmt struct {
+	c *grpcConn
+	q *updogv1.Query
+}
+
+func (stmt *grpcStmt) Close() error {
+	return nil
+}
+
+func (stmt *grpcStmt) Exec(args []driver.Value) (driver.Result, error) {
+	return nil, errors.New("only queries are supported")
+}
+
+func (stmt *grpcStmt) Query(args []driver.Value) (driver.Rows, error) {
+	var values []string
+
+	for _, a := range args {
+		values = append(values, fmt.Sprint(a))
+	}
+
+	return stmt.query(values)
+}
+
+func (stmt *grpcStmt) query(values []string) (driver.Rows, error) {
+	q := queryparser.ReplacePlaceholders(stmt.q, values)
+
+	result, err := stmt.c.client.Query(context.Background(), &updogv1.QueryRequest{
+		Queries: []*updogv1.Query{q},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+
+	return newRows(convert.ToResult(result.Results[0]), q.GroupBy), nil
+}
+
+func (stmt *grpcStmt) NumInput() int {
+	return numInput(stmt.q)
 }
