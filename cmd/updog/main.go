@@ -141,7 +141,19 @@ func main() {
 	schemaCmd.PersistentFlags().StringVarP(&schemaCfg.indexFile, "index-file", "f", "out.updog", "index file to introspect")
 	schemaCmd.PersistentFlags().BoolVar(&schemaCfg.full, "full", false, "show all available values")
 
-	rootCmd.AddCommand(serverCmd, clientCmd, createCmd, schemaCmd)
+	var driverCfg driverConfig
+
+	driverCmd := &cobra.Command{
+		Use:   "driver",
+		Short: `Query updog using its database/sql driver (no actual SQL involved)`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return driverCmd(&driverCfg, args)
+		},
+	}
+
+	driverCmd.PersistentFlags().StringVarP(&driverCfg.dsn, "dsn", "d", "", "data source name")
+
+	rootCmd.AddCommand(serverCmd, clientCmd, createCmd, schemaCmd, driverCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

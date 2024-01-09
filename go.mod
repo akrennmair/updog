@@ -6,6 +6,7 @@ require (
 	github.com/RoaringBitmap/roaring v1.6.0
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/fraugster/cli v1.1.0
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/prometheus/client_golang v1.17.0
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.1
@@ -21,6 +22,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
