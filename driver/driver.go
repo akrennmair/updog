@@ -117,7 +117,7 @@ func (d *updogDriver) openFile(file string, optValues url.Values) (driver.Conn, 
 }
 
 func (d *updogDriver) openConn(host string, port string) (driver.Conn, error) {
-	conn, err := grpc.Dial(host+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(host+":"+port, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)
 	}
