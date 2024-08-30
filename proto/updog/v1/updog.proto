@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package updog.v1;
 
+option go_package = "github.com/akrennmair/updog/proto/updog/v1";
+
 service QueryService {
 	rpc Query(QueryRequest) returns (QueryResponse);
 }
