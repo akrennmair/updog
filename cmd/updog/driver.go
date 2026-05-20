@@ -86,8 +86,10 @@ func printRows(idx int, rows *sql.Rows) error {
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader(header)
-	table.AppendBulk(data)
+	table.Header(header)
+	if err := table.Append(data); err != nil {
+		return fmt.Errorf("failed to append data to table: %w", err)
+	}
 
 	fmt.Printf("Result for query %d:\n", idx)
 
