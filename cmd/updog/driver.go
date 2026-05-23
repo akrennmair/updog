@@ -93,7 +93,9 @@ func printRows(idx int, rows *sql.Rows) error {
 
 	fmt.Printf("Result for query %d:\n", idx)
 
-	table.Render()
+	if err := table.Render(); err != nil {
+		return err
+	}
 
 	fmt.Println("")
 
